@@ -33,6 +33,4 @@ pp fan club
 
 ### encode seven blocks:
    ![image](https://github.com/user-attachments/assets/6b8032a0-da16-42fc-9e3d-d66bcd1c9183)
-
-   helllooooo
    
