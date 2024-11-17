@@ -11,6 +11,40 @@ pp fan club
 6. VGA
 7. Gravity (down by 1)
 
+## File Organization (tentative)
+```
+/FPGA-Tetris/
+  ├── /src/                       # Source code for VHDL modules
+  │     ├── top_level.vhd         # Main file integrating all components
+  │     ├── clock_divider.vhd     # Generates slower clocks
+  │     ├── vga_controller.vhd    # Handles VGA timing and sync signals
+  │     ├── rendering_engine.vhd  # Converts game state to pixel data
+  │     ├── game_logic.vhd        # Implements core Tetris game rules
+  │     ├── input_handler.vhd     # Handles player inputs (debouncing)
+  │     ├── rom_tetrominos.vhd    # ROM for precomputed tetromino shapes
+  │     ├── tetris_utils.vhd      # Package file for reusable functions/types
+  │     ├── debouncer.vhd         # Reusable button debouncer
+  │     ├── counter.vhd           # Reusable counter module
+  │
+  ├── /tb/                        # Testbenches for verification
+  │     ├── tb_top_level.vhd      # Testbench for top_level.vhd
+  │     ├── tb_game_logic.vhd     # Testbench for game_logic.vhd
+  │     ├── tb_vga_controller.vhd # Testbench for vga_controller.vhd
+  │     ├── tb_rendering.vhd      # Testbench for rendering_engine.vhd
+  │     ├── tb_utils.vhd          # Testbench for tetris_utils.vhd functions
+  │
+  ├── /docs/                      # Documentation and diagrams
+  │     ├── block_diagram.pdf     # System block diagram
+  │     ├── timing_constraints.txt# FPGA timing constraints
+  │     ├── module_interfaces.txt # Description of module interfaces
+  │
+  ├── /constraints/               # FPGA-specific constraint files
+  │     ├── tetris_pin_map.xdc    # Pin mappings for buttons, VGA, etc.
+  │
+  └── README.md                   # Overview of the project
+
+```
+
 ## notes:
 1. on terminating logic
 ```
