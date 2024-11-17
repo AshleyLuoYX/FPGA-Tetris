@@ -27,9 +27,9 @@ pp fan club
 
 ## Basic info
    
-### height of grid:
+### height of grid: 20
    
-### width of grid: 
+### width of grid: 12
 
 ### encode seven blocks:
    ![image](https://github.com/user-attachments/assets/6b8032a0-da16-42fc-9e3d-d66bcd1c9183)
