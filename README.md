@@ -2,7 +2,7 @@
 pp fan club
 
 
-Functionalities:
+## Functionalities:
 1. RGB
 2. Generating blocks
 3. Terminating
@@ -11,7 +11,7 @@ Functionalities:
 6. VGA
 7. Gravity (down by 1)
 
-notes:
+## notes:
 1. on terminating logic
 ```
    **if terminating check == TRUE
@@ -25,9 +25,14 @@ notes:
      down by 1**
    ```
 
-3. Basic info
-   height of grid: 
-   width of grid: 
-   encode seven blocks:
+## Basic info
+   
+### height of grid:
+   
+### width of grid: 
+
+### encode seven blocks:
+   ![image](https://github.com/user-attachments/assets/6b8032a0-da16-42fc-9e3d-d66bcd1c9183)
+
    
    
