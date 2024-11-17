@@ -18,8 +18,8 @@ the block's path from the top of the screen down to the bottom
 
 For each iteration, the coordinates of the shape will be compared to the coordinates
 of the set blocks in "Terminal Collision" check. If there is user input and Terminal
-Check is false (it hasn't reached the bottom), then the potential new position of the
-shape is calculated and checked against the existing set blocks. If there is no overlap,
-the actual position (defined by the for loop values) is updated. But the relative (x+1,y)
-values remain the same.
+Check is false (it hasn't reached the bottom or hit a set block), then the potential 
+new position of the shape is calculated and checked against the existing set blocks. 
+If there is no overlap, the actual position (defined by the for loop values) is updated. 
+But the relative (x+1,y) values remain the same.
 
