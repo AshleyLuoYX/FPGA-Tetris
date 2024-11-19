@@ -31,12 +31,12 @@ package body tetris_utils is
         return false; -- Placeholder
     end function;
 
-    -- Function: Rotate Piece
-    function rotate_piece(piece : std_logic_vector) return std_logic_vector is
-    begin
-        -- Implement piece rotation logic here
-        return piece; -- Placeholder
-    end function;
+    -- -- Function: Rotate Piece (we will hard code this part)
+    -- function rotate_piece(piece : std_logic_vector) return std_logic_vector is
+    -- begin
+    --     -- Implement piece rotation logic here
+    --     return piece; -- Placeholder
+    -- end function;
 
     -- Procedure: Lock Piece
     procedure lock_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector) is
