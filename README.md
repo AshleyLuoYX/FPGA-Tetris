@@ -15,16 +15,16 @@ pp fan club
 ```
 /FPGA-Tetris/
   ├── /src/                       # Source code for VHDL modules
-  │     ├── top_level.vhd         # Main file integrating all components
-  │     ├── clock_divider.vhd     # Generates slower clocks
-  │     ├── vga_controller.vhd    # Handles VGA timing and sync signals
-  │     ├── rendering_engine.vhd  # Converts game state to pixel data
+  │     ├── top_level.vhd         # Main file integrating all components 
+  │     ├── clock_divider.vhd     # Generates slower clocks  --> Sunny
+  │     ├── vga_controller.vhd    # Handles VGA timing and sync signals 
+  │     ├── rendering_engine.vhd  # Converts game state to pixel data  --> Ashley
   │     ├── game_logic.vhd        # Implements core Tetris game rules
-  │     ├── input_handler.vhd     # Handles player inputs (debouncing)
-  │     ├── rom_tetrominos.vhd    # ROM for precomputed tetromino shapes
+  │     ├── input_handler.vhd     # Handles player inputs (debouncing)  --> Emma
+  │     ├── rom_tetrominos.vhd    # ROM for precomputed tetromino shapes  --> Ashley
   │     ├── tetris_utils.vhd      # Package file for reusable functions/types
-  │     ├── debouncer.vhd         # Reusable button debouncer
-  │     ├── counter.vhd           # Reusable counter module
+  │     ├── debouncer.vhd         # Reusable button debouncer --> Emma
+  │     ├── counter.vhd           # Reusable counter module  --> Sunny
   │
   ├── /tb/                        # Testbenches for verification
   │     ├── tb_top_level.vhd      # Testbench for top_level.vhd
@@ -35,11 +35,11 @@ pp fan club
   │
   ├── /docs/                      # Documentation and diagrams
   │     ├── block_diagram.pdf     # System block diagram
-  │     ├── timing_constraints.txt# FPGA timing constraints
-  │     ├── module_interfaces.txt # Description of module interfaces
+  │     ├── timing_constraints.txt# FPGA timing constraints  --> Sunny
+  │     ├── module_interfaces.txt # Description of module interfaces  
   │
   ├── /constraints/               # FPGA-specific constraint files
-  │     ├── tetris_pin_map.xdc    # Pin mappings for buttons, VGA, etc.
+  │     ├── tetris_pin_map.xdc    # Pin mappings for buttons, VGA, etc.  --> Emma
   │
   └── README.md                   # Overview of the project
 
