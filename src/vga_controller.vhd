@@ -9,6 +9,7 @@ entity vga_controller_tetris is
         clk       : in  std_logic;                  -- System clock
         reset     : in  std_logic;                  -- Reset signal
         tx        : out std_logic;                  -- UART TX signal
+        grid      : in  std_logic_vector(239 downto 0); -- Input grid (20 rows * 12 columns)
         red       : out std_logic_vector(1 downto 0); -- VGA red signal
         green     : out std_logic_vector(1 downto 0); -- VGA green signal
         blue      : out std_logic_vector(1 downto 0); -- VGA blue signal
@@ -27,30 +28,6 @@ architecture arch of vga_controller_tetris is
 	signal obj1_red: std_logic_vector(1 downto 0);
 	signal obj1_grn: std_logic_vector(1 downto 0);
 	signal obj1_blu: std_logic_vector(1 downto 0);
-	
-	    -- Add this declaration for the grid signal
-    signal grid : std_logic_vector(239 downto 0) := (
-        "000000000000" &  -- Row 1
-        "000000000000" &  -- Row 2
-        "000000000000" &  -- Row 3
-        "000000000000" &  -- Row 4
-        "000000000000" &  -- Row 5
-        "000011000000" &  -- Row 6
-        "000011000000" &  -- Row 7
-        "000000000000" &  -- Row 8
-        "000000000000" &  -- Row 9
-        "000000000000" &  -- Row 10
-        "000000000000" &  -- Row 11
-        "000000000000" &  -- Row 12
-        "000000000000" &  -- Row 13
-        "000000000000" &  -- Row 14
-        "000000000000" &  -- Row 15
-        "000000000000" &  -- Row 16
-        "000000000000" &  -- Row 17
-        "000000000000" &  -- Row 18
-        "000000000000" &  -- Row 19
-        "000000000000"    -- Row 20
-    );
     
 begin
 	tx<='1';
