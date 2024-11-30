@@ -25,11 +25,42 @@ end tetris_utils;
 package body tetris_utils is
 
     -- Function: Collision Detection
-    function collision_detected(x : integer; y : integer; piece : std_logic_vector; grid : Grid) return boolean is
+    function collision_detected(
+    x      : integer;              -- Top-left x-coordinate of the piece
+    y      : integer;              -- Top-left y-coordinate of the piece
+    piece  : std_logic_vector(15 downto 0); -- Flattened 4x4 piece matrix
+    grid   : Grid                  -- Current game grid
+    ) return boolean is
+    variable px, py : integer;     -- Piece matrix indices
+    variable gx, gy : integer;     -- Grid coordinates
+    
     begin
-        -- Implement collision detection logic here
-        return false; -- Placeholder
+        -- Iterate through the 4x4 matrix of the piece
+        for py in 0 to 3 loop
+            for px in 0 to 3 loop
+                -- Extract the current piece block (1 if occupied, 0 if empty)
+                if piece((py * 4) + px) = '1' then
+                    -- Compute grid coordinates for the block
+                    gx := x + px;       -- Grid x-coordinate
+                    gy := y + py;       -- Grid y-coordinate
+                    
+                    -- Check if block is out of bounds
+                    if gx < 0 or gx >= COLS or gy < 0 or gy >= ROWS then
+                        return true;    -- Collision detected with the edge
+                    end if;
+
+                    -- Check if block overlaps with an existing block in the grid
+                    if grid(gy, gx) = '1' then
+                        return true;    -- Collision detected with other blocks
+                    end if;
+                end if;
+            end loop;
+        end loop;
+
+        -- If no collisions were detected, return false
+        return false;
     end function;
+
 
     -- -- Function: Rotate Piece (we will hard code this part)
     -- function rotate_piece(piece : std_logic_vector) return std_logic_vector is
