@@ -13,9 +13,18 @@ package tetris_utils is
     type Grid is array (0 to ROWS-1, 0 to COLS-1) of std_logic;
 
     -- Function Declarations
-    function collision_detected(x : integer; y : integer; piece : std_logic_vector; grid : Grid) return boolean;
-    function rotate_piece(piece : std_logic_vector) return std_logic_vector;
-    procedure lock_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector);
+    function collision_detected(
+        x : integer; y : integer; piece : std_logic_vector; grid : Grid
+    ) return boolean;
+
+    function rotate_piece(
+        block_type : integer range 0 to 6; rotation : integer range 0 to 3
+    ) return std_logic_vector;
+
+    procedure lock_piece(
+        signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
+    );
+
     function detect_and_clear_lines(signal g : inout Grid) return integer;
     function serialize_grid(signal g : Grid) return std_logic_vector;
 
@@ -24,65 +33,59 @@ end tetris_utils;
 -- Package Body
 package body tetris_utils is
 
-    -- Function: Collision Detection
+    -- Collision Detection Function
     function collision_detected(
-    x      : integer;              -- Top-left x-coordinate of the piece
-    y      : integer;              -- Top-left y-coordinate of the piece
-    piece  : std_logic_vector(15 downto 0); -- Flattened 4x4 piece matrix
-    grid   : Grid                  -- Current game grid
+        x : integer; y : integer; piece : std_logic_vector; grid : Grid
     ) return boolean is
-    variable px, py : integer;     -- Piece matrix indices
-    variable gx, gy : integer;     -- Grid coordinates
-    
+    variable px, py, gx, gy : integer;
     begin
-        -- Iterate through the 4x4 matrix of the piece
         for py in 0 to 3 loop
             for px in 0 to 3 loop
-                -- Extract the current piece block (1 if occupied, 0 if empty)
                 if piece((py * 4) + px) = '1' then
-                    -- Compute grid coordinates for the block
-                    gx := x + px;       -- Grid x-coordinate
-                    gy := y + py;       -- Grid y-coordinate
-                    
-                    -- Check if block is out of bounds
+                    gx := x + px;
+                    gy := y + py;
                     if gx < 0 or gx >= COLS or gy < 0 or gy >= ROWS then
-                        return true;    -- Collision detected with the edge
+                        return true;
                     end if;
-
-                    -- Check if block overlaps with an existing block in the grid
                     if grid(gy, gx) = '1' then
-                        return true;    -- Collision detected with other blocks
+                        return true;
                     end if;
                 end if;
             end loop;
         end loop;
-
-        -- If no collisions were detected, return false
         return false;
     end function;
 
+    -- Rotate Piece Function
+    function rotate_piece(
+        block_type : integer range 0 to 6; rotation : integer range 0 to 3
+    ) return std_logic_vector is
+    variable rotated_piece : std_logic_vector(15 downto 0);
+    begin
+        -- Fetch from ROM (assumed to be instantiated elsewhere)
+        rotated_piece := fetch_tetromino(block_type, rotation);
+        return rotated_piece;
+    end function;
 
-    -- -- Function: Rotate Piece (we will hard code this part)
-    -- function rotate_piece(piece : std_logic_vector) return std_logic_vector is
-    -- begin
-    --     -- Implement piece rotation logic here
-    --     return piece; -- Placeholder
-    -- end function;
-
-    -- Procedure: Lock Piece
+    -- Lock Piece Procedure
     procedure lock_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector) is
     begin
-        -- Implement logic to lock the piece into the grid
+        for py in 0 to 3 loop
+            for px in 0 to 3 loop
+                if piece((py * 4) + px) = '1' then
+                    g(y + py, x + px) <= '1';
+                end if;
+            end loop;
+        end loop;
     end procedure;
 
-    -- Function: Detect and Clear Lines
+    -- Line Clearing Function
     function detect_and_clear_lines(signal g : inout Grid) return integer is
         variable lines_cleared : integer := 0;
     begin
         for row in 0 to ROWS-1 loop
             if g(row) = (others => '1') then
                 lines_cleared := lines_cleared + 1;
-                -- Shift rows down
                 for r in row downto 1 loop
                     g(r) := g(r-1);
                 end loop;
@@ -92,7 +95,7 @@ package body tetris_utils is
         return lines_cleared;
     end function;
 
-    -- Function: Serialize Grid
+    -- Serialize Grid Function
     function serialize_grid(signal g : Grid) return std_logic_vector is
         variable serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
     begin
