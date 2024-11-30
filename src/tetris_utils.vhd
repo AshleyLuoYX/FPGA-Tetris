@@ -58,13 +58,20 @@ package body tetris_utils is
 
     -- Rotate Piece Function
     function rotate_piece(
-        block_type : integer range 0 to 6; rotation : integer range 0 to 3
+    block_type : integer range 0 to 6;      -- Block type (0: I, 1: O, ..., 6: Z)
+    rotation   : integer range 0 to 3      -- Rotation (0°, 90°, 180°, 270°)
     ) return std_logic_vector is
-    variable rotated_piece : std_logic_vector(15 downto 0);
+    signal tetromino_out : std_logic_vector(15 downto 0); -- To hold ROM output
     begin
-        -- Fetch from ROM (assumed to be instantiated elsewhere)
-        rotated_piece := fetch_tetromino(block_type, rotation);
-        return rotated_piece;
+        -- ROM Instance for Tetromino Fetching
+        rom_instance : entity work.rom_tetrominos
+            port map (
+                piece_index => std_logic_vector(to_unsigned(block_type, 3)),
+                rotation    => std_logic_vector(to_unsigned(rotation, 2)),
+                tetromino_out => tetromino_out
+            );
+    
+        return tetromino_out;
     end function;
 
     -- Lock Piece Procedure
