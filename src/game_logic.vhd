@@ -28,56 +28,11 @@ architecture Behavioral of game_logic is
     signal piece_pos_x : integer range 0 to COLS-1;             -- X position of the active piece
     signal piece_pos_y : integer range 0 to ROWS-1;             -- Y position of the active piece
     signal spawn_new_piece : std_logic := '1';                  -- Flag to spawn a new piece
+    signal rotation : integer range 0 to 3 := 1;                -- Default rotation index (90 degrees)
     signal current_score : integer := 0;                        -- Player's score
 
-    -- Helper Functions
-    function collision_detected(x : integer; y : integer; piece : std_logic_vector) return boolean is
-        -- Checks if the piece at position (x, y) collides with the grid
-    begin
-        -- Implement collision detection logic
-        return false; -- Placeholder
-    end function;
-
-    function rotate_piece(piece : std_logic_vector) return std_logic_vector is
-        -- Rotates the piece 90 degrees
-    begin
-        -- Implement rotation logic
-        return piece; -- Placeholder
-    end function;
-
-    procedure lock_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector) is
-        -- Locks the piece into the grid
-    begin
-        -- Implement logic to place piece in the grid
-    end procedure;
-
-    function detect_and_clear_lines(signal g : inout Grid) return integer is
-        -- Detects and clears full lines, returns the number of lines cleared
-        variable lines_cleared : integer := 0;
-    begin
-        for row in 0 to ROWS-1 loop
-            if g(row) = (others => '1') then
-                lines_cleared := lines_cleared + 1;
-                -- Shift rows down
-                for r in row downto 1 loop
-                    g(r) := g(r-1);
-                end loop;
-                g(0) := (others => '0');
-            end if;
-        end loop;
-        return lines_cleared;
-    end function;
-
-    function serialize_grid(signal g : Grid) return std_logic_vector is
-        variable serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
-    begin
-        for row in 0 to ROWS-1 loop
-            for col in 0 to COLS-1 loop
-                serialized((row * COLS) + col) := g(row, col);
-            end loop;
-        end loop;
-        return serialized;
-    end function;
+    -- Function and Procedure Imports
+    use work.tetris_utils.ALL;
 
 begin
 
@@ -90,39 +45,48 @@ begin
             piece_pos_x <= COLS / 2;                  -- Center piece
             piece_pos_y <= 0;                         -- Top of the grid
             spawn_new_piece <= '1';
+            rotation <= 1;                            -- Default rotation
             current_score <= 0;
             game_over <= '0';
         elsif rising_edge(clk) then
             if game_over = '0' then
                 -- Handle Movement
                 if move_left = '1' then
-                    if not collision_detected(piece_pos_x - 1, piece_pos_y, active_piece) then
+                    if not collision_detected(piece_pos_x - 1, piece_pos_y, active_piece, grid) then
                         piece_pos_x <= piece_pos_x - 1;
                     end if;
                 elsif move_right = '1' then
-                    if not collision_detected(piece_pos_x + 1, piece_pos_y, active_piece) then
+                    if not collision_detected(piece_pos_x + 1, piece_pos_y, active_piece, grid) then
                         piece_pos_x <= piece_pos_x + 1;
                     end if;
                 end if;
 
                 -- Handle Rotation
                 if rotate = '1' then
-                    if not collision_detected(piece_pos_x, piece_pos_y, rotate_piece(active_piece)) then
-                        active_piece <= rotate_piece(active_piece);
+                    -- Increment rotation and get new rotated piece
+                    variable new_rotation : integer range 0 to 3 := (rotation + 1) mod 4;
+                    variable rotated_piece : std_logic_vector(15 downto 0);
+                    rotated_piece := rotate_piece(block_type, new_rotation);
+
+                    if not collision_detected(piece_pos_x, piece_pos_y, rotated_piece, grid) then
+                        active_piece <= rotated_piece; -- Apply the rotation
+                        rotation <= new_rotation;     -- Update the rotation index
                     end if;
                 end if;
 
-                -- Handle Piece Drop (Automatic or Manual)
-                if not collision_detected(piece_pos_x, piece_pos_y + 1, active_piece) then
+                -- Handle Piece Drop
+                if not collision_detected(piece_pos_x, piece_pos_y + 1, active_piece, grid) then
                     piece_pos_y <= piece_pos_y + 1;
                 else
-                    lock_piece(grid, piece_pos_x, piece_pos_y, active_piece);
+                    lock_piece(grid, piece_pos_x, piece_pos_y, active_piece); -- Lock piece in place
                     spawn_new_piece <= '1';
                 end if;
 
                 -- Spawn New Piece
                 if spawn_new_piece = '1' then
-                    -- Logic to spawn a new piece and check for game over
+                    block_type <= next_block_type; -- Get next block type
+                    rotation <= 1;                -- Default rotation to 90 degrees
+                    active_piece <= rotate_piece(next_block_type, 1); -- Get rotated piece
                     spawn_new_piece <= '0';
                 end if;
 
