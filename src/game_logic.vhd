@@ -17,6 +17,17 @@ end game_logic;
 
 architecture Behavioral of game_logic is
 
+    component clock_divider
+        Port (
+            clk_in      : in  std_logic;
+            reset       : in  std_logic;
+            clk_out     : out std_logic
+        );
+    end component;
+    
+    -- Internal Signals
+    signal slow_clk: std_logic;
+    
     -- Constants
     constant ROWS : integer := 20;                   -- Number of rows in the grid
     constant COLS : integer := 12;                   -- Number of columns in the grid
@@ -35,9 +46,17 @@ architecture Behavioral of game_logic is
     use work.tetris_utils.ALL;
 
 begin
-
+    
+    -- Clock Divider Instantiation
+    clk_div_inst : clock_divider
+        port map (
+            clk_in  => clk,       -- Connect to the 12 MHz input clock
+            reset   => reset,     -- Connect to the reset signal
+            clk_out => slow_clk   -- Slower clock output (1 Hz)
+        );
+        
     -- Main Game Process
-    game_process : process(clk, reset)
+    game_process : process(slow_clk, reset)
     begin
         if reset = '1' then
             -- Reset the game state
@@ -48,7 +67,7 @@ begin
             rotation <= 1;                            -- Default rotation
             current_score <= 0;
             game_over <= '0';
-        elsif rising_edge(clk) then
+        elsif rising_edge(slow_clk) then
             if game_over = '0' then
                 -- Handle Movement
                 if move_left = '1' then
