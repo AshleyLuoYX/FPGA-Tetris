@@ -67,12 +67,13 @@ begin
                     variable new_rotation : integer range 0 to 3 := (rotation + 1) mod 4;
                     variable rotated_piece : std_logic_vector(15 downto 0);
                     rotated_piece := rotate_piece(block_type, new_rotation);
-
+                
                     if not collision_detected(piece_pos_x, piece_pos_y, rotated_piece, grid) then
                         active_piece <= rotated_piece; -- Apply the rotation
                         rotation <= new_rotation;     -- Update the rotation index
                     end if;
                 end if;
+                
 
                 -- Handle Piece Drop
                 if not collision_detected(piece_pos_x, piece_pos_y + 1, active_piece, grid) then
@@ -84,9 +85,9 @@ begin
 
                 -- Spawn New Piece
                 if spawn_new_piece = '1' then
-                    block_type <= next_block_type; -- Get next block type
-                    rotation <= 1;                -- Default rotation to 90 degrees
-                    active_piece <= rotate_piece(next_block_type, 1); -- Get rotated piece
+                    block_type <= next_block_type;        -- Get the next block type
+                    rotation <= 0;                        -- Initialize rotation to 0° (no rotation)
+                    active_piece <= rotate_piece(block_type, 0); -- Fetch the 0° rotated piece using ROM
                     spawn_new_piece <= '0';
                 end if;
 
