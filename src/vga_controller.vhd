@@ -179,8 +179,8 @@ begin
 			dy := to_integer(vcount) / 24; -- Divide pixel Y by cell size
 
 			-- Determine grid cell coordinates
-			grid_x := 11 - dx; -- Horizontal grid index
-			grid_y := 19 - dy; -- Vertical grid index
+			grid_x := dx; -- Horizontal grid index
+			grid_y := dy; -- Vertical grid index
 
 			-- Check if within grid boundaries
 			if (grid_x >= 0 and grid_x < 12 and grid_y >= 0 and grid_y < 20) then
