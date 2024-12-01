@@ -51,6 +51,9 @@ architecture Behavioral of game_logic is
 
     -- Internal Signals
     signal slow_clk : std_logic; -- Slower clock for block movement
+    signal raw_left   : std_logic; -- Signals for raw button input
+    signal raw_right  : std_logic;
+    signal raw_rotate : std_logic;
 
     -- Constants
     constant ROWS : integer := 20;                   -- Number of rows in the grid
@@ -89,7 +92,18 @@ begin
             random_number => random_tetromino    -- Output random number
         );
 
-    input_inst: input_handler
+    -- Input Handler Instantiation
+    input_handler_inst : input_handler
+    port map (
+        clk         => clk,         -- Connect to system clock
+        reset       => reset,       -- Connect to reset signal
+        raw_left    => raw_left,    -- Raw left button signal
+        raw_right   => raw_right,   -- Raw right button signal
+        raw_rotate  => raw_rotate,  -- Raw rotate button signal
+        move_left   => move_left,   -- Debounced left button signal (output)
+        move_right  => move_right,  -- Debounced right button signal (output)
+        rotate      => rotate       -- Debounced rotate button signal (output)
+    );
         
     -- Main Game Process
     -- Main Game Process
