@@ -36,6 +36,19 @@ architecture Behavioral of game_logic is
     );
     end component;
 
+    component input_handler
+    Port (
+        clk         : in  std_logic; -- Clock signal
+        reset       : in  std_logic; -- Reset signal
+        raw_left    : in  std_logic; -- Raw left button signal
+        raw_right   : in  std_logic; -- Raw right button signal
+        raw_rotate  : in  std_logic; -- Raw rotate button signal
+        move_left   : out std_logic; -- Debounced left button signal
+        move_right  : out std_logic; -- Debounced right button signal
+        rotate      : out std_logic  -- Debounced rotate button signal
+    );
+    end component;
+
     -- Internal Signals
     signal slow_clk : std_logic; -- Slower clock for block movement
 
@@ -76,6 +89,8 @@ begin
             random_number => random_tetromino    -- Output random number
         );
 
+    input_inst: input_handler
+        
     -- Main Game Process
     -- Main Game Process
     game_process : process(slow_clk, reset)
