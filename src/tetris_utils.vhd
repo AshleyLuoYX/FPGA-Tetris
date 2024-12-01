@@ -40,7 +40,7 @@ package body tetris_utils is
     function collision_detected(
     x : integer;                    -- Top-left x-coordinate of the piece
     y : integer;                    -- Top-left y-coordinate of the piece
-    piece : std_logic_vector(15 downto 0); -- Flattened 4x4 matrix representing the piece
+    piece : std_logic_vector(0 to 15); -- Flattened 4x4 matrix representing the piece
     grid : Grid                     -- Current game grid
     ) return boolean is
         variable px, py : integer;      -- Indices within the piece (local to the 4x4 grid)
@@ -56,7 +56,7 @@ package body tetris_utils is
                     gy := y + py;       -- Grid y-coordinate
                     
                     -- Check for boundary collisions (left, right, bottom)
-                    if gx < 0 or gx >= COLS or gy < 0 or gy >= ROWS then
+                    if gx <= 0 or gx >= COLS or gy <= 0 or gy >= ROWS then
                         return true;    -- Collision with boundaries detected
                     end if;
     

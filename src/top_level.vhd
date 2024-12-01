@@ -40,7 +40,7 @@ begin
     clk_div_inst: entity work.clock_divider
         port map (
             clk_in  => clk,
-            reset=> reset,
+            reset=> '0',
             clk_out => slow_clk
         );
 
@@ -49,10 +49,10 @@ begin
     tetromino_fetch: process (slow_clk)
     begin
         if rising_edge(slow_clk) then
-            if piece_pos_y = 0 and g(piece_pos_y, piece_pos_x) = '0' then
+            -- if piece_pos_y = 0 and g(piece_pos_y, piece_pos_x) = '0' then
                 -- Fetch a new tetromino at the start position
-                tetromino <= fetch_tetromino(0, 0); -- Fetch a specific tetromino (e.g., type 0, no rotation)
-            end if;
+                tetromino <= fetch_tetromino(4, 0); -- Fetch a specific tetromino (e.g., type 0, no rotation)
+            -- end if;
         end if;
     end process;
 
@@ -62,18 +62,18 @@ begin
     begin
         if rising_edge(slow_clk) then
             -- Check for collision
-            -- if collision_detected(piece_pos_x, piece_pos_y + 1, tetromino, g) then
-            --     -- If collision detected, lock the piece into the grid
-            --     lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
+            if collision_detected(piece_pos_x, piece_pos_y + 1, tetromino, g) then
+                -- If collision detected, lock the piece into the grid
+                lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
 
-            --     -- Reset the piece position to spawn a new piece
-            --     piece_pos_x <= COLS / 2 - 2;
-            --     piece_pos_y <= 0;
-            -- else
+                -- Reset the piece position to spawn a new piece
+                piece_pos_x <= COLS / 2 - 2;
+                piece_pos_y <= 0;
+            else
                 -- If no collision, move the piece down
                 piece_pos_y <= piece_pos_y + 1;
-                lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
-            -- end if;
+                -- lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
+            end if;
         end if;
     end process;
 
