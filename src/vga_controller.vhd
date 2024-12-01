@@ -36,8 +36,13 @@ architecture arch of vga_controller_tetris is
     
 	-- Signals from title_generator
 	signal title_red: std_logic_vector(1 downto 0);
-	signal title_green: std_logic_vector(1 downto 0);
-	signal title_blue: std_logic_vector(1 downto 0);
+	signal title_grn: std_logic_vector(1 downto 0);
+	signal title_blu: std_logic_vector(1 downto 0);
+
+	-- Signals for Score Title Generator
+	signal score_title_red: std_logic_vector(1 downto 0);
+	signal score_title_grn: std_logic_vector(1 downto 0);
+	signal score_title_blu: std_logic_vector(1 downto 0);
 begin
 	tx<='1';
 
@@ -198,8 +203,21 @@ begin
 			hcount => hcount,
 			vcount => vcount,
 			obj_red => title_red,
-			obj_green => title_green,
-			obj_blue => title_blue
+			obj_green => title_grn,
+			obj_blue => title_blu
+		);
+	
+	------------------------------------------------------------------
+	-- Instantiate Score Title Generator
+	------------------------------------------------------------------
+	score_title_gen_inst: entity work.score_title_generator
+		port map (
+			clk => clkfx,
+			hcount => hcount,
+			vcount => vcount,
+			obj_red => score_title_red,
+			obj_green => score_title_grn,
+			obj_blue => score_title_blu
 		);
 
     ------------------------------------------------------------------
@@ -211,10 +229,16 @@ begin
 			obj1_red <= grid_red;
 			obj1_grn <= grid_grn;
 			obj1_blu <= grid_blu;
-        elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(542, 10)) then
+        elsif (hcount >= to_unsigned(300, 10) and hcount < to_unsigned(639, 10) and
+			vcount >= to_unsigned(30, 10) and vcount < to_unsigned(95, 10)) then
             obj1_red <= title_red;
-            obj1_grn <= title_green;
-            obj1_blu <= title_blue;
+            obj1_grn <= title_grn;
+            obj1_blu <= title_blu;
+		elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(539, 10) and
+			vcount >= to_unsigned(130, 10) and vcount < to_unsigned(175, 10)) then
+            obj1_red <= score_title_red;
+			obj1_grn <= score_title_grn;
+			obj1_blu <= score_title_blu;
 		else
 			obj1_red <= "00";
 			obj1_grn <= "00";
