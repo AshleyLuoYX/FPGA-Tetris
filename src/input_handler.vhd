@@ -15,7 +15,7 @@ entity input_handler is
 end input_handler;
 
 architecture Behavioral of input_handler is
-    component debouncer is
+    component debounce is
         Port (
             clk       : in  std_logic;
             reset     : in  std_logic;
@@ -25,7 +25,7 @@ architecture Behavioral of input_handler is
     end component;
 
 begin
-    debounce_left: debouncer
+    debounce_left: debounce
         port map (
             clk => clk,
             reset => reset,
@@ -33,7 +33,7 @@ begin
             button_out => move_left
         );
 
-    debounce_right: debouncer
+    debounce_right: debounce
         port map (
             clk => clk,
             reset => reset,
@@ -41,7 +41,7 @@ begin
             button_out => move_right
         );
 
-    debounce_rotate: debouncer
+    debounce_rotate: debounce
         port map (
             clk => clk,
             reset => reset,
