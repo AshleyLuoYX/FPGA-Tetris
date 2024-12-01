@@ -23,47 +23,33 @@ architecture Behavioral of top_level is
     signal grid_serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
     signal tx_signal       : std_logic;
 
-    -- Tetromino Generation Signals
-    signal block_type  : integer range 0 to 6 := 0;       -- Tetromino type (0 to 6)
-    signal rotation    : integer range 0 to 3 := 0;       -- Rotation (0°, 90°, 180°, 270°)
-    signal tetromino   : std_logic_vector(15 downto 0);   -- Tetromino data
-    signal grid        : Grid := (others => (others => '0')); -- 2D game grid
+    -- Hardcoded Grid
+    signal grid : Grid := (
+        0 => "000000000000",
+        1 => "000000000000",
+        2 => "000000000000",
+        3 => "000000000000",
+        4 => "000011000000",
+        5 => "000011000000",
+        6 => "000000000000",
+        7 => "000000000000",
+        8 => "000000000000",
+        9 => "000000000000",
+        10 => "000000000000",
+        11 => "000000000000",
+        12 => "000000000000",
+        13 => "000000000000",
+        14 => "000000000000",
+        15 => "000000000000",
+        16 => "000000000000",
+        17 => "000000000000",
+        18 => "000000000000",
+        19 => "000000000000"
+    );
 
 begin
 
-    -- Process to Rotate and Display Tetromino
-    tetromino_process : process(clk, reset)
-    begin
-        if reset = '1' then
-            -- Reset logic
-            block_type <= 0;
-            rotation <= 0;
-            grid <= (others => (others => '0')); -- Clear the grid
-        elsif rising_edge(clk) then
-            -- Fetch and Rotate the tetromino
-            tetromino <= fetch_tetromino(block_type, rotation);
-
-            -- Clear the grid and place the tetromino in the top-left corner
-            grid <= (others => (others => '0'));
-            for row in 0 to 3 loop
-                for col in 0 to 3 loop
-                    if tetromino((row * 4) + col) = '1' then
-                        grid(row, col) <= '1'; -- Place the tetromino in the grid
-                    end if;
-                end loop;
-            end loop;
-
-            -- Increment rotation for next frame
-            rotation <= (rotation + 1) mod 4;
-
-            -- Change block type after a full rotation cycle
-            if rotation = 0 then
-                block_type <= (block_type + 1) mod 7;
-            end if;
-        end if;
-    end process;
-
-    -- Serialize the grid to pass to VGA controller
+    -- Serialize the hardcoded grid
     grid_serialized <= serialize_grid(grid);
 
     -- VGA Controller Instance
