@@ -28,7 +28,16 @@ architecture arch of vga_controller_tetris is
 	signal obj1_red: std_logic_vector(1 downto 0);
 	signal obj1_grn: std_logic_vector(1 downto 0);
 	signal obj1_blu: std_logic_vector(1 downto 0);
+
+	-- Signals from grid_generator
+    signal grid_red: std_logic_vector(1 downto 0);
+    signal grid_grn: std_logic_vector(1 downto 0);
+    signal grid_blu: std_logic_vector(1 downto 0);
     
+	-- Signals from title_generator
+	signal title_red: std_logic_vector(1 downto 0);
+	signal title_green: std_logic_vector(1 downto 0);
+	signal title_blue: std_logic_vector(1 downto 0);
 begin
 	tx<='1';
 
@@ -167,48 +176,54 @@ begin
 	end process;
 
     ------------------------------------------------------------------
-    -- Render Static Tetris Grid and Determine Pixel Color
+    -- Instantiate Grid Generator
     ------------------------------------------------------------------
-    process(hcount, vcount, clkfx)
-        variable dx, dy : integer; -- Grid cell size in pixels
-        variable grid_x, grid_y : integer; -- Current grid position
-    begin
-        if rising_edge(clkfx) then
-			-- Calculate grid cell coordinates based on pixel location
-			dx := to_integer(hcount) / 24; -- Divide pixel X by cell size (24 pixels per grid cell)
-			dy := to_integer(vcount) / 24; -- Divide pixel Y by cell size
+    grid_gen_inst: entity work.grid_generator
+        port map (
+            clk => clkfx,
+            grid => grid,
+            hcount => hcount,
+            vcount => vcount,
+            obj_red => grid_red,
+            obj_grn => grid_grn,
+            obj_blu => grid_blu
+        );
 
-			-- Determine grid cell coordinates
-			grid_x := dx; -- Horizontal grid index
-			grid_y := dy; -- Vertical grid index
-
-			-- Check if within grid boundaries
-			if (grid_x >= 0 and grid_x < 12 and grid_y >= 0 and grid_y < 20) then
-				-- Check grid content: '1' for locked block, '0' for empty
-				if grid(grid_y * 12 + grid_x) = '1' then
-					obj1_red <= "11"; -- Red for locked blocks
-					obj1_grn <= "00";
-					obj1_blu <= "00";
-				else
-					obj1_red <= "00"; -- Black for empty grid cells
-					obj1_grn <= "11";
-					obj1_blu <= "00";
-				end if;
-			else
-				-- Outside grid boundaries
-				obj1_red <= "00";
-				obj1_grn <= "00";
-				obj1_blu <= "00";
-			end if;
-        end if;
-    end process;
+	------------------------------------------------------------------
+	-- Instantiate Title Generator
+	------------------------------------------------------------------
+	title_gen_inst: entity work.title_generator
+		port map (
+			clk => clkfx,
+			hcount => hcount,
+			vcount => vcount,
+			obj_red => title_red,
+			obj_green => title_green,
+			obj_blue => title_blue
+		);
 
     ------------------------------------------------------------------
-    -- VGA Output with Blanking
+    -- VGA Output with Blanking and Placement
     ------------------------------------------------------------------
-    red <= b"00" when blank = '1' else obj1_red;
-    green <= b"00" when blank = '1' else obj1_grn;
-    blue <= b"00" when blank = '1' else obj1_blu;
+	process(hcount, vcount, blank)
+	begin
+		if (hcount < to_unsigned(300, 10)) then -- Place grid on left side
+			obj1_red <= grid_red;
+			obj1_grn <= grid_grn;
+			obj1_blu <= grid_blu;
+        elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(542, 10)) then
+            obj1_red <= title_red;
+            obj1_grn <= title_green;
+            obj1_blu <= title_blue;
+		else
+			obj1_red <= "00";
+			obj1_grn <= "00";
+			obj1_blu <= "00";
+		end if;
+	end process;
 
+	red <= b"00" when blank = '1' else obj1_red;
+	green <= b"00" when blank = '1' else obj1_grn;
+	blue <= b"00" when blank = '1' else obj1_blu;
 
 end arch;
