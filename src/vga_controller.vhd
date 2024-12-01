@@ -43,6 +43,12 @@ architecture arch of vga_controller_tetris is
 	signal score_title_red: std_logic_vector(1 downto 0);
 	signal score_title_grn: std_logic_vector(1 downto 0);
 	signal score_title_blu: std_logic_vector(1 downto 0);
+
+	-- Signals for Next Block Generator
+	signal next_block_red : std_logic_vector(1 downto 0);
+	signal next_block_grn : std_logic_vector(1 downto 0);
+	signal next_block_blu : std_logic_vector(1 downto 0);
+	signal next_block : std_logic_vector(0 to 15) := "1000100011000000"; -- Data for the next 4x4 block
 begin
 	tx<='1';
 
@@ -220,6 +226,21 @@ begin
 			obj_blue => score_title_blu
 		);
 
+	------------------------------------------------------------------
+	-- Instantiate Next Block Generator
+	------------------------------------------------------------------
+	next_block_gen_inst: entity work.next_block_generator
+    port map (
+        clk => clkfx,
+        blk => next_block, -- Connect the next block data
+        hcount => hcount,
+        vcount => vcount,
+        obj_red => next_block_red,
+        obj_grn => next_block_grn,
+        obj_blu => next_block_blu
+    );
+
+
     ------------------------------------------------------------------
     -- VGA Output with Blanking and Placement
     ------------------------------------------------------------------
@@ -239,6 +260,12 @@ begin
             obj1_red <= score_title_red;
 			obj1_grn <= score_title_grn;
 			obj1_blu <= score_title_blu;
+		elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(430, 10) and
+           vcount >= to_unsigned(350, 10) and vcount < to_unsigned(430, 10)) then
+			-- Add new display area for the next block
+			obj1_red <= next_block_red;
+			obj1_grn <= next_block_grn;
+			obj1_blu <= next_block_blu;
 		else
 			obj1_red <= "00";
 			obj1_grn <= "00";
