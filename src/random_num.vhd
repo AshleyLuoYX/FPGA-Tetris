@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 entity random_num is
-    Port (
+    port (
         clk     : in  std_logic;               -- Clock signal
         reset   : in  std_logic;               -- Reset signal
         random_number : out std_logic_vector(2 downto 0) -- Random number (3 bits for tetromino types 0-6)
