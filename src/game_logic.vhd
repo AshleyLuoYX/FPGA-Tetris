@@ -2,6 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+-- Function and Procedure Imports
+use work.tetris_utils.ALL;
+
 entity game_logic is
     Port (
         clk         : in  std_logic;                  -- Clock signal
@@ -18,20 +21,20 @@ end game_logic;
 architecture Behavioral of game_logic is
 
     component clock_divider
-        port (
+        Port (
             clk_in  : in  std_logic; -- Input clock signal
             reset   : in  std_logic; -- Reset signal
             clk_out : out std_logic  -- Slower output clock signal
         );
     end component;
-
+    
     component random_num
     port (
         clk : in std_logic;
         reset : in std_logic;
         random_number : out std_logic_vector(2 downto 0)
     );
-end component;
+    end component;
 
     -- Internal Signals
     signal slow_clk : std_logic; -- Slower clock for block movement
@@ -51,9 +54,9 @@ end component;
     signal current_score : integer := 0;                        -- Player's score
     signal block_type : integer range 0 to 6 := 0;              -- Current tetromino type
     signal next_block_type : integer range 0 to 6 := 0;         -- Next tetromino type
-
-    -- Function and Procedure Imports
-    use work.tetris_utils.ALL;
+    
+    -- Signal for Random Number Generator
+    signal random_tetromino : std_logic_vector(2 downto 0);
 
 begin
 
@@ -64,14 +67,14 @@ begin
             reset   => reset,     -- Connect to the reset signal
             clk_out => slow_clk   -- Slower clock output for block movement
         );
-
-    -- Random Number Generator (LFSR) Instantiation
-    num_gen : random_num_gen
+        
+     -- Random Number Generator Instantiation
+    random_num_inst : random_num
         port map (
-        clk => clk,
-        reset => reset,
-        random_number => block_type -- Connect to the block type signal
-    );
+            clk           => clk,                -- Connect to system clock
+            reset         => reset,              -- Connect to reset signal
+            random_number => random_tetromino    -- Output random number
+        );
 
     -- Main Game Process
     -- Main Game Process
@@ -125,7 +128,7 @@ begin
                 -- Spawn New Piece
                 if spawn_new_piece = '1' then
                     block_type <= next_block_type;
-                    next_block_type <= (next_block_type + 1) mod 7; -- Random logic placeholder
+                    next_block_type <= to_integer(unsigned(random_tetromino));
                     rotation <= 0;
                     active_piece <= rotate_piece(block_type, 0);
                     spawn_new_piece <= '0';
