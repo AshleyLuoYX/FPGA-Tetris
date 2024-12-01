@@ -1,38 +1,132 @@
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+use IEEE.std_logic_1164.all;
+use IEEE.numeric_std.all;
 
-entity debouncer is
-    Port (
-        clk       : in  std_logic;        -- Clock signal
-        reset     : in  std_logic;        -- Reset signal
-        button_in : in  std_logic;        -- Raw button input
-        button_out: out std_logic         -- Debounced button output
+entity debounce is
+    port(
+        clk:   in  std_logic;
+        rx:    in  std_logic;
+        tx:    out std_logic;
+        btn_r: in  std_logic;
+        btn_b: in  std_logic;
+        btn_y: in  std_logic;
+        btn_g: in  std_logic
     );
-end debouncer;
+end debounce;
 
-architecture Behavioral of debouncer is
-    constant DEBOUNCE_TIME : integer := 50000; -- Adjust for your clock frequency
-    signal counter         : integer range 0 to DEBOUNCE_TIME := 0;
-    signal stable_state    : std_logic := '0';
+architecture arch of debounce is
+
+    signal cntr: unsigned(6 downto 0) := (others => '0');
+    signal cntb: unsigned(6 downto 0) := (others => '0');
+    signal cnty: unsigned(6 downto 0) := (others => '0');
+    signal cntg: unsigned(6 downto 0) := (others => '0');
+
+    -- Debounced signals
+    signal btn_r_filtered: std_logic := '0';
+    signal btn_b_filtered: std_logic := '0';
+    signal btn_y_filtered: std_logic := '0';
+    signal btn_g_filtered: std_logic := '0';
+
+    -- Saturation counters for debounce
+    signal counter_r: unsigned(3 downto 0) := (others => '0');
+    signal counter_b: unsigned(3 downto 0) := (others => '0');
+    signal counter_y: unsigned(3 downto 0) := (others => '0');
+    signal counter_g: unsigned(3 downto 0) := (others => '0');
+
+    -- Edge detection signals
+    signal btn_r_last: std_logic := '0';
+    signal btn_b_last: std_logic := '0';
+    signal btn_y_last: std_logic := '0';
+    signal btn_g_last: std_logic := '0';
+
 begin
-    process (clk, reset)
+    -- Process to handle debounce and edge detection
+    process(clk)
     begin
-        if reset = '1' then
-            counter <= 0;
-            stable_state <= '0';
-            button_out <= '0';
-        elsif rising_edge(clk) then
-            if button_in /= stable_state then
-                counter <= counter + 1;
-                if counter = DEBOUNCE_TIME then
-                    stable_state <= button_in;
-                    button_out <= button_in;
-                    counter <= 0;
+        if rising_edge(clk) then
+            -- Debounced Red button
+            if btn_r = '1' then
+                if counter_r /= "1111" then
+                    counter_r <= counter_r + 1;
+                else
+                    btn_r_filtered <= '1';
                 end if;
             else
-                counter <= 0;
+                if counter_r /= "0000" then
+                    counter_r <= counter_r - 1;
+                else
+                    btn_r_filtered <= '0';
+                end if;
             end if;
+
+            -- Debounced Blue button
+            if btn_b = '1' then
+                if counter_b /= "1111" then
+                    counter_b <= counter_b + 1;
+                else
+                    btn_b_filtered <= '1';
+                end if;
+            else
+                if counter_b /= "0000" then
+                    counter_b <= counter_b - 1;
+                else
+                    btn_b_filtered <= '0';
+                end if;
+            end if;
+
+            -- Debounced Yellow button
+            if btn_y = '1' then
+                if counter_y /= "1111" then
+                    counter_y <= counter_y + 1;
+                else
+                    btn_y_filtered <= '1';
+                end if;
+            else
+                if counter_y /= "0000" then
+                    counter_y <= counter_y - 1;
+                else
+                    btn_y_filtered <= '0';
+                end if;
+            end if;
+
+            -- Debounced Green button
+            if btn_g = '1' then
+                if counter_g /= "1111" then
+                    counter_g <= counter_g + 1;
+                else
+                    btn_g_filtered <= '1';
+                end if;
+            else
+                if counter_g /= "0000" then
+                    counter_g <= counter_g - 1;
+                else
+                    btn_g_filtered <= '0';
+                end if;
+            end if;
+
+            -- Edge detection for Red button
+            if btn_r_filtered = '1' and btn_r_last = '0' then
+                cntr <= cntr + 1;
+            end if;
+            btn_r_last <= btn_r_filtered;
+
+            -- Edge detection for Blue button
+            if btn_b_filtered = '1' and btn_b_last = '0' then
+                cntb <= cntb + 1;
+            end if;
+            btn_b_last <= btn_b_filtered;
+
+            -- Edge detection for Yellow button
+            if btn_y_filtered = '1' and btn_y_last = '0' then
+                cnty <= cnty + 1;
+            end if;
+            btn_y_last <= btn_y_filtered;
+
+            -- Edge detection for Green button
+            if btn_g_filtered = '1' and btn_g_last = '0' then
+                cntg <= cntg + 1;
+            end if;
+            btn_g_last <= btn_g_filtered;
         end if;
     end process;
-end Behavioral;
+end arch;
