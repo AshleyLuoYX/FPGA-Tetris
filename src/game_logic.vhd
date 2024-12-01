@@ -18,12 +18,20 @@ end game_logic;
 architecture Behavioral of game_logic is
 
     component clock_divider
-        Port (
+        port (
             clk_in  : in  std_logic; -- Input clock signal
             reset   : in  std_logic; -- Reset signal
             clk_out : out std_logic  -- Slower output clock signal
         );
     end component;
+
+    component random_num
+    port (
+        clk : in std_logic;
+        reset : in std_logic;
+        random_number : out std_logic_vector(2 downto 0)
+    );
+end component;
 
     -- Internal Signals
     signal slow_clk : std_logic; -- Slower clock for block movement
@@ -56,6 +64,14 @@ begin
             reset   => reset,     -- Connect to the reset signal
             clk_out => slow_clk   -- Slower clock output for block movement
         );
+
+    -- Random Number Generator (LFSR) Instantiation
+    num_gen : random_num_gen
+        port map (
+        clk => clk,
+        reset => reset,
+        random_number => block_type -- Connect to the block type signal
+    );
 
     -- Main Game Process
     -- Main Game Process
