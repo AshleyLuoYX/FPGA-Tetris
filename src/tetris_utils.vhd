@@ -14,7 +14,10 @@ package tetris_utils is
 
     -- Function Declarations
     function collision_detected(
-        x : integer; y : integer; piece : std_logic_vector; grid : Grid
+        x : integer; 
+        y : integer; 
+        piece : std_logic_vector(0 to 15); 
+        grid : Grid
     ) return boolean;
 
     function fetch_tetromino(
@@ -29,8 +32,22 @@ package tetris_utils is
         signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
     );
 
+    procedure delete_piece(
+        signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
+    );
+
     function serialize_grid(signal g : Grid) return std_logic_vector;
 
+    -- -- Update Piece Location Procedure Declaration
+	-- procedure update_piece_loc(
+	-- 	signal g : inout Grid;                  -- Game grid to be updated
+    --     current_x : integer;                    -- Current X position of the block
+    --     current_y : integer;                    -- Current Y position of the block
+    --     new_x : integer;                        -- New X position of the block
+    --     new_y : integer;                        -- New Y position of the block
+    --     piece : std_logic_vector(0 to 15)              -- Tetromino data (4x4 matrix as a flat vector)
+	-- );
+	
 end tetris_utils;
 
 -- Package Body
@@ -38,10 +55,10 @@ package body tetris_utils is
 
     -- Collision Detection Function
     function collision_detected(
-    x : integer;                    -- Top-left x-coordinate of the piece
-    y : integer;                    -- Top-left y-coordinate of the piece
-    piece : std_logic_vector(0 to 15); -- Flattened 4x4 matrix representing the piece
-    grid : Grid                     -- Current game grid
+		x : integer;                    -- Top-left x-coordinate of the piece
+		y : integer;                    -- Top-left y-coordinate of the piece
+		piece : std_logic_vector(0 to 15); -- Flattened 4x4 matrix representing the piece
+		grid : Grid                     -- Current game grid
     ) return boolean is
         variable px, py : integer;      -- Indices within the piece (local to the 4x4 grid)
         variable gx, gy : integer;      -- Corresponding grid coordinates in the playfield
@@ -56,7 +73,7 @@ package body tetris_utils is
                     gy := y + py;       -- Grid y-coordinate
                     
                     -- Check for boundary collisions (left, right, bottom)
-                    if gx <= 0 or gx >= COLS or gy <= 0 or gy >= ROWS then
+                    if gx < 0 or gx >= COLS or gy < 0 or gy >= ROWS then
                         return true;    -- Collision with boundaries detected
                     end if;
     
@@ -119,6 +136,18 @@ package body tetris_utils is
         end loop;
     end procedure;
 
+    -- Lock Piece Procedure
+    procedure delete_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector) is
+    begin
+        for py in 0 to 3 loop
+            for px in 0 to 3 loop
+                if piece((py * 4) + px) = '1' then
+                    g(y + py, x + px) <= '0';
+                end if;
+            end loop;
+        end loop;
+    end procedure;
+
     -- Serialize Grid Function
     function serialize_grid(signal g : Grid) return std_logic_vector is
         variable serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
@@ -130,5 +159,34 @@ package body tetris_utils is
         end loop;
         return serialized;
     end function;
+
+    -- -- Update Piece Location Procedure
+    -- procedure update_piece_loc(
+    --     signal g : inout Grid;                  -- Game grid to be updated
+    --     current_x : integer;                    -- Current X position of the block
+    --     current_y : integer;                    -- Current Y position of the block
+    --     new_x : integer;                        -- New X position of the block
+    --     new_y : integer;                        -- New Y position of the block
+    --     piece : std_logic_vector(0 to 15)               -- Tetromino data (4x4 matrix as a flat vector)
+    -- ) is
+    -- begin
+    --     -- Clear the current location of the block
+    --     for py in 0 to 3 loop
+    --         for px in 0 to 3 loop
+    --             if piece((py * 4) + px) = '1' then
+    --                 g(current_y + py, current_x + px) <= '0';
+    --             end if;
+    --         end loop;
+    --     end loop;
+
+    --     -- Place the block in the new location
+    --     for py in 0 to 3 loop
+    --         for px in 0 to 3 loop
+    --             if piece((py * 4) + px) = '1' then
+    --                 g(new_y + py, new_x + px) <= '1';
+    --             end if;
+    --         end loop;
+    --     end loop;
+    -- end procedure;
 
 end tetris_utils;
