@@ -36,8 +36,24 @@ architecture Behavioral of game_logic is
     );
     end component;
 
+    component input_handler
+    Port (
+        clk         : in  std_logic; -- Clock signal
+        reset       : in  std_logic; -- Reset signal
+        raw_left    : in  std_logic; -- Raw left button signal
+        raw_right   : in  std_logic; -- Raw right button signal
+        raw_rotate  : in  std_logic; -- Raw rotate button signal
+        move_left   : out std_logic; -- Debounced left button signal
+        move_right  : out std_logic; -- Debounced right button signal
+        rotate      : out std_logic  -- Debounced rotate button signal
+    );
+    end component;
+
     -- Internal Signals
     signal slow_clk : std_logic; -- Slower clock for block movement
+    signal debounced_left   : std_logic;
+    signal debounced_right  : std_logic;
+    signal debounced_rotate : std_logic;
 
     -- Constants
     constant ROWS : integer := 20;                   -- Number of rows in the grid
@@ -76,6 +92,19 @@ begin
             random_number => random_tetromino    -- Output random number
         );
 
+    -- Input Handler Instantiation
+    input_handler_inst : input_handler
+    port map (
+        clk         => clk,         -- Clock signal
+        reset       => reset,       -- Reset signal
+        raw_left    => move_left,   -- Map raw input directly
+        raw_right   => move_right,  -- Map raw input directly
+        raw_rotate  => rotate,      -- Map raw input directly
+        move_left   => debounced_left,   -- Internal signal for debounced left
+        move_right  => debounced_right,  -- Internal signal for debounced right
+        rotate      => debounced_rotate  -- Internal signal for debounced rotate
+    );
+        
     -- Main Game Process
     -- Main Game Process
     game_process : process(slow_clk, reset)
@@ -95,18 +124,18 @@ begin
         elsif rising_edge(slow_clk) then
             if game_over = '0' then
                 -- Handle Movement
-                if move_left = '1' then
+                if debounced_left = '1' then
                     if not collision_detected(piece_pos_x - 1, piece_pos_y, active_piece, grid) then
                         piece_pos_x <= piece_pos_x - 1;
                     end if;
-                elsif move_right = '1' then
+                elsif debounced_right = '1' then
                     if not collision_detected(piece_pos_x + 1, piece_pos_y, active_piece, grid) then
                         piece_pos_x <= piece_pos_x + 1;
                     end if;
                 end if;
     
                 -- Handle Rotation
-                if rotate = '1' then
+                if debounced_rotate = '1' then
                     -- Increment rotation and get new rotated piece
                     new_rotation := (rotation + 1) mod 4;
                     rotated_piece := rotate_piece(block_type, new_rotation);

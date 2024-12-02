@@ -14,7 +14,7 @@ architecture Behavioral of clock_divider is
 
     -- Constant: Number of input clock cycles needed for 1 second
     -- Formula: cycles = input_frequency / output_frequency
-    constant DIVIDE_COUNT : integer := 12_000_000; -- 12 MHz / 1 Hz
+    constant DIVIDE_COUNT : integer := 24_000_000; -- 12 MHz / 1 Hz
 
     -- Signal for counter
     signal counter : integer range 0 to DIVIDE_COUNT-1 := 0;

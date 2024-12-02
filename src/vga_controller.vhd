@@ -244,7 +244,7 @@ begin
     ------------------------------------------------------------------
     -- VGA Output with Blanking and Placement
     ------------------------------------------------------------------
-	process(hcount, vcount, blank)
+	process(hcount, vcount, blank, clkfx)
 	begin
 		if (hcount < to_unsigned(300, 10)) then -- Place grid on left side
 			obj1_red <= grid_red;
