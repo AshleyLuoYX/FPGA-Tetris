@@ -15,9 +15,9 @@ end title_generator;
 
 architecture Behavioral of title_generator is
     -- Title display area (right side of the grid)
-    constant title_start_x : integer := 350;  -- Starting X coordinate for the title
+    constant title_start_x : integer := 300;  -- Starting X coordinate for the title
     constant title_start_y : integer := 30;   -- Starting Y coordinate for the title
-    constant block_size : integer := 8;       -- Enlargement factor (8x8 pixels per block)
+    constant block_size : integer := 12;       -- Enlargement factor (8x8 pixels per block)
 
     -- Binary representation of the title
     type title_array is array (0 to 4, 0 to 23) of std_logic;

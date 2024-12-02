@@ -36,8 +36,19 @@ architecture arch of vga_controller_tetris is
     
 	-- Signals from title_generator
 	signal title_red: std_logic_vector(1 downto 0);
-	signal title_green: std_logic_vector(1 downto 0);
-	signal title_blue: std_logic_vector(1 downto 0);
+	signal title_grn: std_logic_vector(1 downto 0);
+	signal title_blu: std_logic_vector(1 downto 0);
+
+	-- Signals for Score Title Generator
+	signal score_title_red: std_logic_vector(1 downto 0);
+	signal score_title_grn: std_logic_vector(1 downto 0);
+	signal score_title_blu: std_logic_vector(1 downto 0);
+
+	-- Signals for Next Block Generator
+	signal next_block_red : std_logic_vector(1 downto 0);
+	signal next_block_grn : std_logic_vector(1 downto 0);
+	signal next_block_blu : std_logic_vector(1 downto 0);
+	signal next_block : std_logic_vector(0 to 15) := "1000100011000000"; -- Data for the next 4x4 block
 begin
 	tx<='1';
 
@@ -198,29 +209,67 @@ begin
 			hcount => hcount,
 			vcount => vcount,
 			obj_red => title_red,
-			obj_green => title_green,
-			obj_blue => title_blue
+			obj_green => title_grn,
+			obj_blue => title_blu
 		);
+	
+	------------------------------------------------------------------
+	-- Instantiate Score Title Generator
+	------------------------------------------------------------------
+	score_title_gen_inst: entity work.score_title_generator
+		port map (
+			clk => clkfx,
+			hcount => hcount,
+			vcount => vcount,
+			obj_red => score_title_red,
+			obj_green => score_title_grn,
+			obj_blue => score_title_blu
+		);
+
+	------------------------------------------------------------------
+	-- Instantiate Next Block Generator
+	------------------------------------------------------------------
+	next_block_gen_inst: entity work.next_block_generator
+    port map (
+        clk => clkfx,
+        blk => next_block, -- Connect the next block data
+        hcount => hcount,
+        vcount => vcount,
+        obj_red => next_block_red,
+        obj_grn => next_block_grn,
+        obj_blu => next_block_blu
+    );
+
 
     ------------------------------------------------------------------
     -- VGA Output with Blanking and Placement
     ------------------------------------------------------------------
 	process(hcount, vcount, blank, clkfx)
 	begin
-		if rising_edge(clkfx) then
-			if (hcount < to_unsigned(300, 10)) then -- Place grid on left side
-				obj1_red <= grid_red;
-				obj1_grn <= grid_grn;
-				obj1_blu <= grid_blu;
-			elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(542, 10)) then
-				obj1_red <= title_red;
-				obj1_grn <= title_green;
-				obj1_blu <= title_blue;
-			else
-				obj1_red <= "00";
-				obj1_grn <= "00";
-				obj1_blu <= "00";
-			end if;
+		if (hcount < to_unsigned(300, 10)) then -- Place grid on left side
+			obj1_red <= grid_red;
+			obj1_grn <= grid_grn;
+			obj1_blu <= grid_blu;
+        elsif (hcount >= to_unsigned(300, 10) and hcount < to_unsigned(639, 10) and
+			vcount >= to_unsigned(30, 10) and vcount < to_unsigned(95, 10)) then
+            obj1_red <= title_red;
+            obj1_grn <= title_grn;
+            obj1_blu <= title_blu;
+		elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(539, 10) and
+			vcount >= to_unsigned(130, 10) and vcount < to_unsigned(175, 10)) then
+            obj1_red <= score_title_red;
+			obj1_grn <= score_title_grn;
+			obj1_blu <= score_title_blu;
+		elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(430, 10) and
+           vcount >= to_unsigned(350, 10) and vcount < to_unsigned(430, 10)) then
+			-- Add new display area for the next block
+			obj1_red <= next_block_red;
+			obj1_grn <= next_block_grn;
+			obj1_blu <= next_block_blu;
+		else
+			obj1_red <= "00";
+			obj1_grn <= "00";
+			obj1_blu <= "00";
 		end if;
 	end process;
 
