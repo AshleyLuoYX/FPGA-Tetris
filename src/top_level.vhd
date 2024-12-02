@@ -80,36 +80,12 @@ begin
                 new_piece_pos_x <= COLS / 2 - 2;
                 new_piece_pos_y <= 0;
             else
-                -- delete_piece(g, piece_pos_x, piece_pos_y, tetromino);
-                for py in 0 to 3 loop
-                    for px in 0 to 3 loop
-                        if tetromino((py * 4) + px) = '1' then
-                            g(piece_pos_y + py, piece_pos_x + px) <= '0';
-                        end if;
-                    end loop;
-                end loop;
-
+                delete_piece(g, piece_pos_x, piece_pos_y, tetromino);
                 piece_pos_y <= piece_pos_y + 1;
+                lock_piece(g, piece_pos_x, piece_pos_y + 1, tetromino);
 
-                -- lock_piece(g, piece_pos_x, piece_pos_y+1, tetromino);
-                for py in 0 to 3 loop
-                    for px in 0 to 3 loop
-                        if tetromino((py * 4) + px) = '1' then
-                            g(piece_pos_y + 1 + py, piece_pos_x + px) <= '1';
-                        end if;
-                    end loop;
-                end loop;
-                
                 shadow_grid <= g;
-
-                -- delete_piece(g, piece_pos_x, piece_pos_y, tetromino);
-                for py in 0 to 3 loop
-                    for px in 0 to 3 loop
-                        if tetromino((py * 4) + px) = '1' then
-                            shadow_grid(piece_pos_y + 1 + py, piece_pos_x + px) <= '0';
-                        end if;
-                    end loop;
-                end loop;
+                delete_piece(shadow_grid, piece_pos_x, piece_pos_y + 1, tetromino);
             end if;
             
         end if;
