@@ -73,7 +73,7 @@ begin
                     obj_grn <= "00";
                     obj_blu <= "00";
 
-                -- Thin dark green frame around empty blocks
+                -- Thin dark grey frame around empty blocks
                 elsif (local_x < 1 or local_x >= cell_width - 1 or
                        local_y < 1 or local_y >= cell_height - 1) then
                     obj_red <= "01"; 

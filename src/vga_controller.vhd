@@ -260,8 +260,8 @@ begin
             obj1_red <= score_title_red;
 			obj1_grn <= score_title_grn;
 			obj1_blu <= score_title_blu;
-		elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(430, 10) and
-           vcount >= to_unsigned(350, 10) and vcount < to_unsigned(430, 10)) then
+		elsif (hcount >= to_unsigned(390, 10) and hcount < to_unsigned(490, 10) and
+           vcount >= to_unsigned(320, 10) and vcount < to_unsigned(420, 10)) then
 			-- Add new display area for the next block
 			obj1_red <= next_block_red;
 			obj1_grn <= next_block_grn;

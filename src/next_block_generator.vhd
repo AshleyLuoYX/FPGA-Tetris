@@ -20,8 +20,8 @@ architecture Behavioral of next_block_generator is
     constant cell_height : integer := 20; -- Cell height in pixels
 
     -- Start coordinates for the 4x4 block display area
-    constant start_x : integer := 350;    -- Starting X coordinate
-    constant start_y : integer := 350;    -- Starting Y coordinate
+    constant start_x : integer := 400;    -- Starting X coordinate
+    constant start_y : integer := 330;    -- Starting Y coordinate
 
     constant frame_thickness : integer := 4; -- Thickness of the outer frame
 
@@ -38,35 +38,47 @@ begin
             local_y <= (to_integer(vcount) - start_y) mod cell_height; -- Y position within block
 
             -- Check if pixel is within the frame area (outer frame)
-            if (to_integer(hcount) >= start_x - frame_thickness and
-                to_integer(hcount) < start_x + (4 * cell_width) + frame_thickness and
+            if (to_integer(hcount) > start_x - frame_thickness and
+                to_integer(hcount) <= start_x + (4 * cell_width) + frame_thickness and
                 to_integer(vcount) >= start_y - frame_thickness and
                 to_integer(vcount) < start_y + (4 * cell_height) + frame_thickness) then
 
-                -- Render outer grey frame
-                if (to_integer(hcount) < start_x or
-                    to_integer(hcount) >= start_x + (4 * cell_width) or
-                    to_integer(vcount) < start_y or
+                -- Render outer light grey frame
+                if (to_integer(hcount) <= start_x or
+                    to_integer(vcount) < start_y) then
+                    obj_red <= "10"; -- Grey for outer frame
+                    obj_grn <= "10";
+                    obj_blu <= "10";
+
+                -- Render outer light grey frame
+                elsif (to_integer(hcount) > start_x + (4 * cell_width) or
                     to_integer(vcount) >= start_y + (4 * cell_height)) then
                     obj_red <= "10"; -- Grey for outer frame
                     obj_grn <= "10";
                     obj_blu <= "10";
 
-                -- Thin dark green frame for empty cells
-                elsif (local_x < 1 or local_x >= cell_width - 1 or
-                       local_y < 1 or local_y >= cell_height - 1) then
-                    obj_red <= "01"; 
+                -- Thin light red frame for active blocks
+                elsif (block_x >= 0 and block_x < 4 and block_y >= 0 and block_y < 4 and
+                       blk((block_y * 4) + block_x) = '1' and
+                       (local_x < 2 or local_y < 2)) then
+                    obj_red <= "11"; 
                     obj_grn <= "01";
                     obj_blu <= "01";
 
                 -- Thin dark red frame for active blocks
                 elsif (block_x >= 0 and block_x < 4 and block_y >= 0 and block_y < 4 and
                        blk((block_y * 4) + block_x) = '1' and
-                       (local_x < 2 or local_x >= cell_width - 2 or
-                        local_y < 2 or local_y >= cell_height - 2)) then
+                       (local_x >= cell_width - 2 or local_y >= cell_height - 2)) then
                     obj_red <= "10"; 
                     obj_grn <= "00";
                     obj_blu <= "00";
+
+                -- Thin dark grey frame for empty cells
+                elsif (local_x < 1 or local_x >= cell_width - 1 or
+                       local_y < 1 or local_y >= cell_height - 1) then
+                    obj_red <= "01"; 
+                    obj_grn <= "01";
+                    obj_blu <= "01";
 
                 -- Block content
                 elsif (block_x >= 0 and block_x < 4 and block_y >= 0 and block_y < 4 and
