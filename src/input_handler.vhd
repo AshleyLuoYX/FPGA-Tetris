@@ -16,36 +16,34 @@ end input_handler;
 
 architecture Behavioral of input_handler is
     component debounce is
-        Port (
-            clk       : in  std_logic;
-            reset     : in  std_logic;
-            button_in : in  std_logic;
-            button_out: out std_logic
+        port(
+            clk:   in  std_logic;
+            btn_r: in  std_logic;  -- Button mapped to reset
+            btn_b: in  std_logic;  -- Button mapped to move_left
+            btn_y: in  std_logic;  -- Button mapped to rotate
+            btn_g: in  std_logic   -- Button mapped to move_right
         );
     end component;
 
+    -- Signals for debounced outputs
+    signal debounced_reset   : std_logic;
+    signal debounced_left    : std_logic;
+    signal debounced_rotate  : std_logic;
+    signal debounced_right   : std_logic;
+
 begin
-    debounce_left: debounce
+    -- Map the debounce module to handle all buttons
+    debounce_inst: debounce
         port map (
-            clk => clk,
-            reset => reset,
-            button_in => raw_left,
-            button_out => move_left
+            clk   => clk,
+            btn_r => reset,          -- Map btn_r to reset
+            btn_b => raw_left,       -- Map btn_b to raw_left
+            btn_y => raw_rotate,     -- Map btn_y to raw_rotate
+            btn_g => raw_right       -- Map btn_g to raw_right
         );
 
-    debounce_right: debounce
-        port map (
-            clk => clk,
-            reset => reset,
-            button_in => raw_right,
-            button_out => move_right
-        );
-
-    debounce_rotate: debounce
-        port map (
-            clk => clk,
-            reset => reset,
-            button_in => raw_rotate,
-            button_out => rotate
-        );
+    -- Assign debounced signals to outputs
+    move_left  <= debounced_left;   -- Debounced left button signal
+    move_right <= debounced_right;  -- Debounced right button signal
+    rotate     <= debounced_rotate; -- Debounced rotate button signal
 end Behavioral;
