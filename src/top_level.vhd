@@ -90,10 +90,28 @@ begin
             else
                 delete_piece(g, piece_pos_x, piece_pos_y, tetromino);
                 
-                --test move left animation
+                 --test move left animation
+                if not collision_detected(piece_pos_x - 1, piece_pos_y, tetromino, g) then
+                    piece_pos_x <= piece_pos_x - 1;
+                end if;
+                
+                piece_pos_y <= piece_pos_y + 1;
+                lock_piece(g, piece_pos_x - 1, piece_pos_y + 1, rotated_piece);
+
+                shadow_grid <= g;
+                delete_piece(shadow_grid, piece_pos_x - 1, piece_pos_y + 1, rotated_piece);
                 
                 --test move right animation
+                if not collision_detected(piece_pos_x + 1, piece_pos_y, tetromino, g) then
+                    piece_pos_x <= piece_pos_x +1 1;
+                end if;
                 
+                piece_pos_y <= piece_pos_y + 1;
+                lock_piece(g, piece_pos_x + 1, piece_pos_y + 1, rotated_piece);
+
+                shadow_grid <= g;
+                delete_piece(shadow_grid, piece_pos_x + 1, piece_pos_y + 1, rotated_piece);
+
                 --test move rotation animation
                 new_rotation := (rotation + 1) mod 4;
                 rotated_piece := rotate_piece(4, new_rotation);
