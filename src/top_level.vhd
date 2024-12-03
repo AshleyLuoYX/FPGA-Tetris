@@ -23,6 +23,20 @@ end entity;
 
 architecture Behavioral of top_level is
 
+    component input_handler
+    Port (
+        clk         : in  std_logic; -- Clock signal
+        reset       : in  std_logic; -- Reset signal
+        raw_left    : in  std_logic; -- Raw left button signal
+        raw_right   : in  std_logic; -- Raw right button signal
+        raw_rotate  : in  std_logic; -- Raw rotate button signal
+        move_left   : out std_logic; -- Debounced left button signal
+        move_right  : out std_logic; -- Debounced right button signal
+        rotate      : out std_logic;  -- Debounced rotate button signal
+        debounced_reset : out std_logic              -- Debounced reset signal (optional)
+    );
+    end component;
+
     -- VGA Controller Signals
     signal grid_serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
     signal tx_signal       : std_logic;
@@ -48,6 +62,11 @@ architecture Behavioral of top_level is
     signal block_type : integer range 0 to 6 := 5;              -- Current tetromino type
     signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
 
+    -- Internal signals for debounced outputs
+    signal debounced_left   : std_logic;
+    signal debounced_right  : std_logic;
+    signal debounced_rotate : std_logic;
+    
     signal left_signal : std_logic := '0';
     signal right_signal : std_logic := '0';
     signal rotate_signal : std_logic := '0';
@@ -64,17 +83,34 @@ begin
             reset=> '0',
             clk_out => slow_clk
         );
-
+    
+    input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
+    port map (
+        clk             => clk,           -- System clock
+        reset           => reset,         -- Reset signal
+        raw_left        => raw_left,      -- Raw input for move left
+        raw_right       => raw_right,     -- Raw input for move right
+        raw_rotate      => raw_rotate,    -- Raw input for rotate
+        move_left       => debounced_left, -- Debounced move_left signal
+        move_right      => debounced_right, -- Debounced move_right signal
+        rotate          => debounced_rotate, -- Debounced rotate signal
+        debounced_reset => open            -- Debounced reset signal (optional)       
+    );
+    
     process (clk)
     begin
         if rising_edge(clk) then
-            if raw_left = '1' then
+            if debounced_left = '1' then
                 left_signal <= '1';
-            elsif raw_right = '1' then
+                led <= "01";
+            elsif debounced_right = '1' then
                 right_signal <= '1';
-            elsif raw_rotate = '1' then
+                led <= "10";
+            elsif debounced_rotate = '1' then
                 rotate_signal <= '1';
+                led <= "11";
             else
+                led <= "00";
                 -- do nothing
             end if;
 
