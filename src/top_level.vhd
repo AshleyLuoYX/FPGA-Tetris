@@ -39,6 +39,12 @@ architecture Behavioral of top_level is
     signal new_piece_pos_y : integer range 0 to ROWS - 1;
 
     signal shadow_grid : Grid := (others => (others => '0'));
+    
+    signal rotation : integer range 0 to 3 := 0;                -- Default rotation index (0 degrees)
+    signal block_type : integer range 0 to 6 := 0;              -- Current tetromino type
+    signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
+
+
 
 begin
 
@@ -65,6 +71,8 @@ begin
     -- Main Falling Logic
 
     falling_logic: process (piece_pos_x, piece_pos_y, slow_clk)
+        variable new_rotation : integer range 0 to 3;
+        variable rotated_piece : std_logic_vector(0 to 15);
     begin
         if rising_edge(slow_clk) then
             -- Check for collision
@@ -81,11 +89,24 @@ begin
                 new_piece_pos_y <= 0;
             else
                 delete_piece(g, piece_pos_x, piece_pos_y, tetromino);
+                
+                --test move left animation
+                
+                --test move right animation
+                
+                --test move rotation animation
+                new_rotation := (rotation + 1) mod 4;
+                rotated_piece := rotate_piece(4, new_rotation);
+                    
+                if not collision_detected(piece_pos_x, piece_pos_y, rotated_piece, g) then
+                    rotation <= new_rotation;
+                end if;
+                
                 piece_pos_y <= piece_pos_y + 1;
-                lock_piece(g, piece_pos_x, piece_pos_y + 1, tetromino);
+                lock_piece(g, piece_pos_x, piece_pos_y + 1, rotated_piece);
 
                 shadow_grid <= g;
-                delete_piece(shadow_grid, piece_pos_x, piece_pos_y + 1, tetromino);
+                delete_piece(shadow_grid, piece_pos_x, piece_pos_y + 1, rotated_piece);
             end if;
             
         end if;
