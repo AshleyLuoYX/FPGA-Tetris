@@ -121,7 +121,7 @@ begin
     end process;
 
     -- VGA Controller Instance
-    vga_ctrl_inst: entity work.vga_controller_tetris
+    vga_ctrl_inst: entity work.vga_controller_simple_tetris
         port map (
             clk   => clk,
             reset => reset,

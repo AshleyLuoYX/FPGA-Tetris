@@ -18,7 +18,7 @@ entity vga_controller_simple_tetris is
     );
 end vga_controller_simple_tetris;
 
-architecture arch of vga_controller_tetris is
+architecture arch of vga_controller_simple_tetris is
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
 	signal hcount:   unsigned(9 downto 0);
@@ -174,7 +174,7 @@ begin
     ------------------------------------------------------------------
     -- Instantiate Grid Generator
     ------------------------------------------------------------------
-    grid_gen_inst: entity work.grid_generator
+    grid_gen_inst: entity work.grid_generator_simple
         port map (
             clk => clkfx,
             grid => grid,
