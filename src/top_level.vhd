@@ -14,6 +14,10 @@ entity top_level is
         blue  : out std_logic_vector(1 downto 0); -- VGA blue signal
         hsync : out std_logic;                    -- Horizontal sync
         vsync : out std_logic;                     -- Vertical sync
+        raw_left   : in  std_logic;                  -- Raw input for move left
+        raw_right  : in  std_logic;                  -- Raw input for move right
+        raw_rotate : in  std_logic;                   -- Raw input for rotate
+        led         : out STD_LOGIC_VECTOR(1 downto 0) -- LEDs for output
     );
 end entity;
 
@@ -41,11 +45,16 @@ architecture Behavioral of top_level is
     signal shadow_grid : Grid := (others => (others => '0'));
     
     signal rotation : integer range 0 to 3 := 0;                -- Default rotation index (0 degrees)
-    signal block_type : integer range 0 to 6 := 4;              -- Current tetromino type
+    signal block_type : integer range 0 to 6 := 5;              -- Current tetromino type
     signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
 
+    signal left_signal : std_logic := '0';
+    signal right_signal : std_logic := '0';
+    signal rotate_signal : std_logic := '0';
 
-
+    signal reset_left_signal : std_logic := '0';
+    signal reset_right_signal : std_logic := '0';
+    signal reset_rotate_signal : std_logic := '0';
 begin
 
     -- Clock Divider for Slow Movement
@@ -56,142 +65,245 @@ begin
             clk_out => slow_clk
         );
 
+    process (clk)
+    begin
+        if rising_edge(clk) then
+            if raw_left = '1' then
+                left_signal <= '1';
+            elsif raw_right = '1' then
+                right_signal <= '1';
+            elsif raw_rotate = '1' then
+                rotate_signal <= '1';
+            else
+                -- do nothing
+            end if;
 
+            if reset_left_signal = '1' then
+                left_signal <= '0';
+            elsif reset_right_signal = '1' then
+                right_signal <= '0';
+            elsif reset_rotate_signal = '1' then
+                rotate_signal <= '0';
+            else
+                -- do nothing
+            end if;
+        end if;
+    end process;
 
-    -- -- Main Falling Logic
+    -- Main Falling Logic
+    falling_logic: process (slow_clk)
+        variable temp_piece_pos_x : integer range 0 to COLS - 1;
+        variable temp_piece_pos_y : integer range 0 to ROWS - 1;
+        -- For rotation
+        variable temp_rotation : integer range 0 to 3;
+        variable rotated_piece : std_logic_vector(0 to 15);
+    begin
+        if rising_edge(slow_clk) then
+            tetromino <= fetch_tetromino(block_type, 0);
+            if left_signal = '1' then
+                -- Initialize temporary variables with current signal values
+                temp_piece_pos_x := piece_pos_x;
+                temp_piece_pos_y := piece_pos_y;
+        
+                -- Clear the current tetromino from the main grid
+                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                -- Test move-left animation
+                if not collision_detected(temp_piece_pos_x - 1, temp_piece_pos_y, tetromino, shadow_grid) then
+                    -- Update temporary X position to move left
+                    temp_piece_pos_x := temp_piece_pos_x - 1;
+                end if;
+        
+                -- Check for collision below
+                if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
+                    -- If collision detected, lock the tetromino into the grid
+                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                    -- Reset the piece position to spawn a new tetromino
+                    piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                    piece_pos_y <= 0;
+                else
+                    -- Move the tetromino down
+                    temp_piece_pos_y := temp_piece_pos_y + 1;
+        
+                    -- Lock the tetromino into the main grid at the new position
+                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                    -- Assign updated temporary positions back to signals
+                    piece_pos_x <= temp_piece_pos_x;
+                    piece_pos_y <= temp_piece_pos_y;
+                end if;
 
-    -- falling_logic: process (slow_clk)
-    --     variable temp_piece_pos_x : integer range 0 to COLS - 1;
-    --     variable temp_piece_pos_y : integer range 0 to ROWS - 1;
-    -- begin
-    --     if rising_edge(slow_clk) then
-    --         tetromino <= fetch_tetromino(block_type, 0);
+                -- Update shadow grid for visualization
+                shadow_grid <= g;
+                -- Clear the tetromino's new position from the shadow grid
+                delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-    --         -- Initialize temporary variables with current signal values
-    --         temp_piece_pos_x := piece_pos_x;
-    --         temp_piece_pos_y := piece_pos_y;
-    
-    --         -- Clear the current tetromino from the main grid
-    --         delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-    --         -- Test move-left animation
-    --         if not collision_detected(temp_piece_pos_x - 1, temp_piece_pos_y, tetromino, shadow_grid) then
-    --             -- Update temporary X position to move left
-    --             temp_piece_pos_x := temp_piece_pos_x - 1;
-    --         end if;
-    
-    --         -- Check for collision below
-    --         if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-    --             -- If collision detected, lock the tetromino into the grid
-    --             lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-    --             -- Reset the piece position to spawn a new tetromino
-    --             piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-    --             piece_pos_y <= 0;
-    --         else
-    --             -- Move the tetromino down
-    --             temp_piece_pos_y := temp_piece_pos_y + 1;
-    
-    --             -- Lock the tetromino into the main grid at the new position
-    --             lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-    --             -- Assign updated temporary positions back to signals
-    --             piece_pos_x <= temp_piece_pos_x;
-    --             piece_pos_y <= temp_piece_pos_y;
-    --         end if;
-    
-    --         -- Update shadow grid for visualization
-    --         shadow_grid <= g;
-    
-    --         -- Clear the tetromino's new position from the shadow grid
-    --         delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    --     end if;
-    -- end process;
+                reset_left_signal <= '1';
+                reset_right_signal <= '0';
+                reset_rotate_signal <= '0';
 
-falling_logic: process (slow_clk)
-   variable temp_piece_pos_x : integer range 0 to COLS - 1;
-   variable temp_piece_pos_y : integer range 0 to ROWS - 1;
-   variable temp_rotation : integer range 0 to 3;
-   variable rotated_piece : std_logic_vector(0 to 15);
-begin
-   if rising_edge(slow_clk) then
-       tetromino <= fetch_tetromino(block_type, 0);
+            elsif right_signal = '1' then
+                -- Initialize temporary variables with current signal values
+                temp_piece_pos_x := piece_pos_x;
+                temp_piece_pos_y := piece_pos_y;
+        
+                -- Clear the current tetromino from the main grid
+                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                -- Test move-left animation
+                if not collision_detected(temp_piece_pos_x + 1, temp_piece_pos_y, tetromino, shadow_grid) then
+                    -- Update temporary X position to move left
+                    temp_piece_pos_x := temp_piece_pos_x + 1;
+                end if;
+        
+                -- Check for collision below
+                if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
+                    -- If collision detected, lock the tetromino into the grid
+                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                    -- Reset the piece position to spawn a new tetromino
+                    piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                    piece_pos_y <= 0;
+                else
+                    -- Move the tetromino down
+                    temp_piece_pos_y := temp_piece_pos_y + 1;
+        
+                    -- Lock the tetromino into the main grid at the new position
+                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                    -- Assign updated temporary positions back to signals
+                    piece_pos_x <= temp_piece_pos_x;
+                    piece_pos_y <= temp_piece_pos_y;
+                end if;
+                -- Update shadow grid for visualization
+                shadow_grid <= g;
+        
+                -- Clear the tetromino's new position from the shadow grid
+                delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-       -- Initialize temporary variables with current signal values
-       temp_piece_pos_x := piece_pos_x;
-       temp_piece_pos_y := piece_pos_y;
-       temp_rotation := rotation;
+                reset_right_signal <= '1';
+                reset_left_signal <= '0';
+                reset_rotate_signal <= '0';
 
-       -- Clear the current position of the tetromino from the main grid
-       delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+            elsif rotate_signal = '1' then
+                -- Initialize temporary variables with current signal values
+                temp_piece_pos_x := piece_pos_x;
+                temp_piece_pos_y := piece_pos_y;
+                temp_rotation := rotation;
 
-       -- Handle Rotation
-       temp_rotation := (rotation + 1) mod 4; -- Increment rotation
-       rotated_piece := rotate_piece(block_type, temp_rotation);
+                -- Clear the current position of the tetromino from the main grid
+                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-       if not collision_detected(temp_piece_pos_x, temp_piece_pos_y, rotated_piece, shadow_grid) then
-           -- Apply rotation if no collision
-           tetromino <= rotated_piece;
-           rotation <= temp_rotation;
+                -- Handle Rotation
+                temp_rotation := (rotation + 1) mod 4; -- Increment rotation
+                rotated_piece := rotate_piece(block_type, temp_rotation);
 
-           -- Check for collision below
-           if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, rotated_piece, shadow_grid) then
-               -- If collision detected, lock the piece into the grid
-               lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
+                if not collision_detected(temp_piece_pos_x, temp_piece_pos_y, rotated_piece, shadow_grid) then
+                    -- Apply rotation if no collision
+                    tetromino <= rotated_piece;
+                    rotation <= temp_rotation;
 
-               -- Reset the piece position to spawn a new tetromino
-               piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-               piece_pos_y <= 0;
-               rotation <= 0; -- Reset rotation
-           else
-               -- Move the tetromino down
-               temp_piece_pos_y := temp_piece_pos_y + 1;
+                    -- Check for collision below
+                    if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, rotated_piece, shadow_grid) then
+                        -- If collision detected, lock the piece into the grid
+                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
 
-               -- Lock the tetromino into the grid at the new position
-               lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
+                        -- Reset the piece position to spawn a new tetromino
+                        piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                        piece_pos_y <= 0;
+                        rotation <= 0; -- Reset rotation
+                    else
+                        -- Move the tetromino down
+                        temp_piece_pos_y := temp_piece_pos_y + 1;
 
-               -- Assign updated temporary positions back to signals
-               piece_pos_x <= temp_piece_pos_x;
-               piece_pos_y <= temp_piece_pos_y;
-           end if;
+                        -- Lock the tetromino into the grid at the new position
+                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
 
-           -- Update shadow grid for visualization
-           shadow_grid <= g;
+                        -- Assign updated temporary positions back to signals
+                        piece_pos_x <= temp_piece_pos_x;
+                        piece_pos_y <= temp_piece_pos_y;
+                    end if;
 
-           -- Clear the tetromino's new position from the shadow grid
-           delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
+                    -- Update shadow grid for visualization
+                    shadow_grid <= g;
 
-       else
-           -- Check for collision below
-           if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-               -- If collision detected, lock the piece into the grid
-               lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                    -- Clear the tetromino's new position from the shadow grid
+                    delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
 
-               -- Reset the piece position to spawn a new tetromino
-               piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-               piece_pos_y <= 0;
-               rotation <= 0; -- Reset rotation
-           else
-               -- Move the tetromino down
-               temp_piece_pos_y := temp_piece_pos_y + 1;
+                else
+                    -- Check for collision below
+                    if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
+                        -- If collision detected, lock the piece into the grid
+                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-               -- Lock the tetromino into the grid at the new position
-               lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                        -- Reset the piece position to spawn a new tetromino
+                        piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                        piece_pos_y <= 0;
+                        rotation <= 0; -- Reset rotation
+                    else
+                        -- Move the tetromino down
+                        temp_piece_pos_y := temp_piece_pos_y + 1;
 
-               -- Assign updated temporary positions back to signals
-               piece_pos_x <= temp_piece_pos_x;
-               piece_pos_y <= temp_piece_pos_y;
-           end if;
+                        -- Lock the tetromino into the grid at the new position
+                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-           -- Update shadow grid for visualization
-           shadow_grid <= g;
+                        -- Assign updated temporary positions back to signals
+                        piece_pos_x <= temp_piece_pos_x;
+                        piece_pos_y <= temp_piece_pos_y;
+                    end if;
 
-           -- Clear the tetromino's new position from the shadow grid
-           delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-       end if;
-   end if;
-end process;
+                    -- Update shadow grid for visualization
+                    shadow_grid <= g;
 
+                    -- Clear the tetromino's new position from the shadow grid
+                    delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                end if;
+
+                reset_rotate_signal <= '1';
+                reset_left_signal <= '0';
+                reset_right_signal <= '0';
+
+            else
+                -- Initialize temporary variables with current signal values
+                temp_piece_pos_x := piece_pos_x;
+                temp_piece_pos_y := piece_pos_y;
+        
+                -- Clear the current tetromino from the main grid
+                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+
+                -- Check for collision below
+                if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
+                    -- If collision detected, lock the tetromino into the grid
+                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                    -- Reset the piece position to spawn a new tetromino
+                    piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                    piece_pos_y <= 0;
+                else
+                    -- Move the tetromino down
+                    temp_piece_pos_y := temp_piece_pos_y + 1;
+        
+                    -- Lock the tetromino into the main grid at the new position
+                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+        
+                    -- Assign updated temporary positions back to signals
+                    piece_pos_x <= temp_piece_pos_x;
+                    piece_pos_y <= temp_piece_pos_y;
+                end if;
+                -- Update shadow grid for visualization
+                shadow_grid <= g;
+        
+                -- Clear the tetromino's new position from the shadow grid
+                delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+
+                reset_left_signal <= '0';
+                reset_right_signal <= '0';
+                reset_rotate_signal <= '0';
+
+            end if;
+        end if;
+    end process;
 
 
     -- Serialize the grid to pass to VGA controller
