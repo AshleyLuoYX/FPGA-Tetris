@@ -17,25 +17,29 @@ entity top_level is
         raw_left   : in  std_logic;                  -- Raw input for move left
         raw_right  : in  std_logic;                  -- Raw input for move right
         raw_rotate : in  std_logic;                   -- Raw input for rotate
-        led         : out STD_LOGIC_VECTOR(1 downto 0) -- LEDs for output
+        led         : out STD_LOGIC_VECTOR(1 downto 0); -- LEDs for output
+        grid_debug : out std_logic_vector((20 * 12) - 1 downto 0); -- Debug grid output
+        TB_slow_clk      : out std_logic;                    -- Observable slow clock
+        TB_divide_count  : out integer;                      -- Observable divide count
+        TB_score         : out integer                       -- Observable score
     );
 end entity;
 
 architecture Behavioral of top_level is
 
-    component input_handler
-    Port (
-        clk         : in  std_logic; -- Clock signal
-        reset       : in  std_logic; -- Reset signal
-        raw_left    : in  std_logic; -- Raw left button signal
-        raw_right   : in  std_logic; -- Raw right button signal
-        raw_rotate  : in  std_logic; -- Raw rotate button signal
-        move_left   : out std_logic; -- Debounced left button signal
-        move_right  : out std_logic; -- Debounced right button signal
-        rotate      : out std_logic;  -- Debounced rotate button signal
-        debounced_reset : out std_logic              -- Debounced reset signal (optional)
-    );
-    end component;
+    -- component input_handler
+    -- Port (
+    --     clk         : in  std_logic; -- Clock signal
+    --     reset       : in  std_logic; -- Reset signal
+    --     raw_left    : in  std_logic; -- Raw left button signal
+    --     raw_right   : in  std_logic; -- Raw right button signal
+    --     raw_rotate  : in  std_logic; -- Raw rotate button signal
+    --     move_left   : out std_logic; -- Debounced left button signal
+    --     move_right  : out std_logic; -- Debounced right button signal
+    --     rotate      : out std_logic;  -- Debounced rotate button signal
+    --     debounced_reset : out std_logic              -- Debounced reset signal (optional)
+    -- );
+    -- end component;
 
     -- VGA Controller Signals
     signal grid_serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
@@ -49,9 +53,6 @@ architecture Behavioral of top_level is
     signal piece_pos_x : integer range 0 to COLS - 1 := COLS / 2 - 2; -- Start X position
     signal piece_pos_y : integer range 0 to ROWS - 1 := 0;            -- Start Y position
 
-    -- Clock Divider for Slow Movement
-    signal slow_clk : std_logic;
-
     -- Temporary New X and Y Position
     signal new_piece_pos_x : integer range 0 to COLS - 1;
     signal new_piece_pos_y : integer range 0 to ROWS - 1;
@@ -63,76 +64,88 @@ architecture Behavioral of top_level is
     signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
 
     -- Internal signals for debounced outputs
-    signal debounced_left   : std_logic;
-    signal debounced_right  : std_logic;
-    signal debounced_rotate : std_logic;
+    -- signal debounced_left   : std_logic;
+    -- signal debounced_right  : std_logic;
+    -- signal debounced_rotate : std_logic;
     
     signal left_signal : std_logic := '0';
     signal right_signal : std_logic := '0';
     signal rotate_signal : std_logic := '0';
 
-    signal reset_left_signal : std_logic := '0';
-    signal reset_right_signal : std_logic := '0';
-    signal reset_rotate_signal : std_logic := '0';
-begin
+    -- signal reset_left_signal : std_logic := '0';
+    -- signal reset_right_signal : std_logic := '0';
+    -- signal reset_rotate_signal : std_logic := '0';
+    
+    
+    -- Clock Divider for Slow Movement
+    signal slow_clk : std_logic;
+    signal current_divide_count : integer := 100; -- Default to 1 Hz
+    signal score : integer := 0; -- Score counter
+    
+    
 
+begin
+    -- Map internal signals to output ports
+    TB_slow_clk <= slow_clk; -- Expose slow clock
+    TB_divide_count <= current_divide_count; -- Expose divide count
+    TB_score <= score; -- Expose score
+    
+    
     -- Clock Divider for Slow Movement
     clk_div_inst: entity work.clock_divider
         port map (
             clk_in  => clk,
             reset=> '0',
+            divide_count => current_divide_count,
             clk_out => slow_clk
         );
-    
-    input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
-    port map (
-        clk             => clk,           -- System clock
-        reset           => reset,         -- Reset signal
-        raw_left        => raw_left,      -- Raw input for move left
-        raw_right       => raw_right,     -- Raw input for move right
-        raw_rotate      => raw_rotate,    -- Raw input for rotate
-        move_left       => debounced_left, -- Debounced move_left signal
-        move_right      => debounced_right, -- Debounced move_right signal
-        rotate          => debounced_rotate, -- Debounced rotate signal
-        debounced_reset => open            -- Debounced reset signal (optional)       
-    );
-    
-    process (clk)
+     
+     -- Process to update divide_count based on score
+    process (score)
     begin
-        if rising_edge(clk) then
-            if debounced_left = '1' then
-                left_signal <= '1';
-                led <= "01";
-            elsif debounced_right = '1' then
-                right_signal <= '1';
-                led <= "10";
-            elsif debounced_rotate = '1' then
-                rotate_signal <= '1';
-                led <= "11";
-            else
-                led <= "00";
-                -- do nothing
-            end if;
-
-            if reset_left_signal = '1' then
-                left_signal <= '0';
-            elsif reset_right_signal = '1' then
-                right_signal <= '0';
-            elsif reset_rotate_signal = '1' then
-                rotate_signal <= '0';
-            else
-                -- do nothing
-            end if;
+        -- Scale divide_count based on score
+        current_divide_count <= 30 - score*5; -- Example: Decrease divide_count as score increases
+        if current_divide_count < 5 then
+            current_divide_count <= 5; -- Minimum value
         end if;
     end process;
 
+    
+    -- Score Update Logic (Simplified Example)
+    process (slow_clk, reset)
+    begin
+        if reset = '1' then
+            score <= 0; -- Reset score
+        elsif rising_edge(slow_clk) then
+            -- Example: Increment score every slow clock cycle
+            score <= score + 1;
+        end if;
+    end process;
+    
+    -- input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
+    -- port map (
+    --     clk             => clk,           -- System clock
+    --     reset           => reset,         -- Reset signal
+    --     raw_left        => raw_left,      -- Raw input for move left
+    --     raw_right       => raw_right,     -- Raw input for move right
+    --     raw_rotate      => raw_rotate,    -- Raw input for rotate
+    --     move_left       => debounced_left, -- Debounced move_left signal
+    --     move_right      => debounced_right, -- Debounced move_right signal
+    --     rotate          => debounced_rotate, -- Debounced rotate signal
+    --     debounced_reset => open            -- Debounced reset signal (optional)       
+    -- );
+
     -- Main Falling Logic
-    falling_logic: process (slow_clk)
+    falling_logic: process (slow_clk, clk)
         variable temp_piece_pos_x : integer range 0 to COLS - 1;
         variable temp_piece_pos_y : integer range 0 to ROWS - 1;
         -- For rotation
         variable temp_rotation : integer range 0 to 3;
         variable rotated_piece : std_logic_vector(0 to 15);
+
+        variable left_var : std_logic := '0';
+        variable right_var : std_logic := '0';
+        variable rotate_var : std_logic := '0';
     begin
         if rising_edge(slow_clk) then
             tetromino <= fetch_tetromino(block_type, 0);
@@ -175,10 +188,6 @@ begin
                 -- Clear the tetromino's new position from the shadow grid
                 delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-                reset_left_signal <= '1';
-                reset_right_signal <= '0';
-                reset_rotate_signal <= '0';
-
             elsif right_signal = '1' then
                 -- Initialize temporary variables with current signal values
                 temp_piece_pos_x := piece_pos_x;
@@ -217,10 +226,6 @@ begin
         
                 -- Clear the tetromino's new position from the shadow grid
                 delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-
-                reset_right_signal <= '1';
-                reset_left_signal <= '0';
-                reset_rotate_signal <= '0';
 
             elsif rotate_signal = '1' then
                 -- Initialize temporary variables with current signal values
@@ -296,10 +301,6 @@ begin
                     delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
                 end if;
 
-                reset_rotate_signal <= '1';
-                reset_left_signal <= '0';
-                reset_right_signal <= '0';
-
             else
                 -- Initialize temporary variables with current signal values
                 temp_piece_pos_x := piece_pos_x;
@@ -333,11 +334,29 @@ begin
                 -- Clear the tetromino's new position from the shadow grid
                 delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-                reset_left_signal <= '0';
-                reset_right_signal <= '0';
-                reset_rotate_signal <= '0';
-
             end if;
+
+        elsif falling_edge(slow_clk) then
+            left_var := '0';
+            right_var := '0';
+            rotate_var := '0';
+
+        elsif rising_edge(clk) then
+            -- if debounced_left = '1' then
+            if raw_left = '1' then
+                left_var := '1';
+            -- elsif debounced_right = '1' then
+            elsif raw_right = '1' then
+                right_var := '1';
+            -- elsif debounced_rotate = '1' then
+            elsif raw_rotate = '1' then
+                rotate_var := '1';
+            else
+                -- do nothing
+            end if;
+            left_signal <= left_var;
+            right_signal <= right_var;
+            rotate_signal <= rotate_var;
         end if;
     end process;
 
@@ -347,6 +366,7 @@ begin
     begin
         if rising_edge(clk) then
             grid_serialized <= serialize_grid(g);
+            grid_debug <= serialize_grid(g);
         end if;
     end process;
 
