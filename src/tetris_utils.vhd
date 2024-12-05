@@ -13,6 +13,9 @@ package tetris_utils is
     type Grid is array (0 to ROWS-1, 0 to COLS-1) of std_logic;
 
     -- Function Declarations
+    function is_row_full(row : std_logic_vector(COLS-1 downto 0)) return boolean;
+    function get_row(grid : Grid; row_index : integer) return std_logic_vector;
+    
     function collision_detected(
         x : integer; 
         y : integer; 
@@ -28,6 +31,9 @@ package tetris_utils is
         block_type : integer range 0 to 6; rotation : integer range 0 to 3
     ) return std_logic_vector;
 
+    -- Procedure Declaration
+    procedure clear_full_rows(signal g : inout Grid; signal score : inout integer);
+    
     procedure lock_piece(
         signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
     );
@@ -53,6 +59,58 @@ end tetris_utils;
 -- Package Body
 package body tetris_utils is
 
+    -- Function to check if row is full
+    function is_row_full(row : std_logic_vector(COLS-1 downto 0)) return boolean is
+    begin
+        for col in 0 to COLS-1 loop
+            if row(col) = '0' then
+                return false; -- If any cell is '0', the row is not full
+            end if;
+        end loop;
+        return true; -- If all cells are '1', the row is full
+    end function;
+    
+    -- Function to get row
+    function get_row(grid : Grid; row_index : integer) return std_logic_vector is
+        variable row_vec : std_logic_vector(COLS-1 downto 0); -- To store the extracted row
+    begin
+        for col in 0 to COLS-1 loop
+            row_vec(col) := grid(row_index, col); -- Copy each column element into the row vector
+        end loop;
+        return row_vec;
+    end function;
+    
+-- Procedure to clear full rows and update the score
+    procedure clear_full_rows(signal g : inout Grid; signal score : inout integer) is
+        variable rows_cleared : integer := 0; -- Count of cleared rows
+        variable write_row : integer := ROWS-1; -- Tracks the next row to write down
+    begin
+        -- Loop through all rows from bottom to top
+        for read_row in ROWS-1 downto 0 loop
+            -- Use the get_row function to check if the row is full
+            if not is_row_full(get_row(g, read_row)) then
+                -- If the row is not full, move it to the `write_row` position
+                for col in 0 to COLS-1 loop
+                    g(write_row, col) <= g(read_row, col);
+                end loop;
+                write_row := write_row - 1; -- Move write pointer up
+            else
+                -- Increment cleared rows count for full rows
+                rows_cleared := rows_cleared + 1;
+            end if;
+        end loop;
+
+        -- Clear the remaining rows above the write_row index
+        for r in write_row downto 0 loop
+            for col in 0 to COLS-1 loop
+                g(r, col) <= '0';
+            end loop;
+        end loop;
+
+        -- Update the score based on rows cleared
+        score <= score + rows_cleared; -- Example scoring: 10 points per cleared row
+    end procedure;
+    
     -- Collision Detection Function
     function collision_detected(
 		x : integer;                    -- Top-left x-coordinate of the piece
