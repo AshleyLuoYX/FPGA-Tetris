@@ -6,21 +6,20 @@ entity clock_divider is
     Port (
         clk_in      : in  std_logic;  -- Input clock (12 MHz)
         reset       : in  std_logic;  -- Reset signal
+        divide_count: in integer;     -- Variable divide count
         clk_out     : out std_logic   -- Output clock (1 Hz)
     );
 end clock_divider;
 
 architecture Behavioral of clock_divider is
 
-    -- Constant: Number of input clock cycles needed for 1 second
-    -- Formula: cycles = input_frequency / output_frequency
-    constant DIVIDE_COUNT : integer := 6_000_000; -- 12 MHz / 1 Hz
-
-    -- Signal for counter
-    signal counter : integer range 0 to DIVIDE_COUNT-1 := 0;
-
+     -- Signal for counter
+    signal counter : integer range 0 to 2**31-1 := 0; -- Large enough range for divide counts
     -- Signal for output clock
     signal clk_reg : std_logic := '0';
+    
+    -- Constant: Number of input clock cycles needed for 1 second
+    -- Formula: cycles = input_frequency / output_frequency
 
 begin
 
@@ -31,7 +30,7 @@ begin
             counter <= 0;
             clk_reg <= '0';
         elsif rising_edge(clk_in) then
-            if counter = DIVIDE_COUNT-1 then
+            if counter = divide_count-1 then
                 -- Toggle the clock and reset the counter
                 clk_reg <= not clk_reg;
                 counter <= 0;
