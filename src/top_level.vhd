@@ -138,6 +138,8 @@ begin
         variable rotated_piece : std_logic_vector(0 to 15);
 
         variable input_state : std_logic_vector(2 downto 0);
+
+        variable temp_shadow_grid : Grid := (others => (others => '0'));
     begin
         if rising_edge(slow_clk) then
             tetromino <= fetch_tetromino(block_type, rotation);
@@ -185,9 +187,12 @@ begin
                 end if;
 
                 -- Update shadow grid for visualization
-                shadow_grid <= g;
+                temp_shadow_grid := g;
+
                 -- Clear the tetromino's new position from the shadow grid
-                delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                delete_piece_variable(temp_shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+
+                shadow_grid <= temp_shadow_grid;
 
                 -- reset_left_signal <= '1';
                 -- reset_right_signal <= '0';
