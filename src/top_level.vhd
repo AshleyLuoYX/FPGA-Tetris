@@ -49,11 +49,11 @@ architecture Behavioral of top_level is
     --signal g : Grid := (others => (others => '0')); -- 20x12 game grid
     signal g : Grid := (
         
-        15 => ("111110001111"), 
-        16 => ("111110011111"),
-        17 => ("111111111111"), 
-        18 => ("111111111111"),
-        19 => ("000001110000"), 
+        15 => ("111101111111"), 
+        16 => ("111101111111"),
+        17 => ("111101111111"), 
+        18 => ("111101111111"),
+        19 => ("000011110000"), 
         others => (others => '0') -- All other rows are empty
     );
     
@@ -69,7 +69,7 @@ architecture Behavioral of top_level is
     signal shadow_grid : Grid := (others => (others => '0'));
     
     signal rotation : integer range 0 to 3 := 0;                -- Default rotation index (0 degrees)
-    signal block_type : integer range 0 to 6 := 5;              -- Current tetromino type
+    signal block_type : integer range 0 to 6 := 0;              -- Current tetromino type
     signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
 
     -- Internal signals for debounced outputs
@@ -129,16 +129,16 @@ begin
 --        end if;
 --    end process;
     
-    row_clearing_logic: process (clk)
-    begin
-        if rising_edge(clk) then
-            -- Simulate the row-clearing logic
-            clear_full_rows(g, score);
+--    row_clearing_logic: process (clk)
+--    begin
+--        if rising_edge(clk) then
+--            -- Simulate the row-clearing logic
+--            clear_full_rows(g, score);
     
-            -- Serialize the grid for debugging
-            --grid_debug <= serialize_grid(g);
-        end if;
-    end process;
+--            -- Serialize the grid for debugging
+--            --grid_debug <= serialize_grid(g);
+--        end if;
+--    end process;
     
     -- input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
     -- port map (
@@ -154,7 +154,7 @@ begin
     -- );
 
     -- Main Falling Logic
-    falling_logic: process (slow_clk, clk)
+    falling_logic: process (slow_clk)
         variable temp_piece_pos_x : integer range 0 to COLS - 1;
         variable temp_piece_pos_y : integer range 0 to ROWS - 1;
         -- For rotation
@@ -165,6 +165,8 @@ begin
         variable right_var : std_logic := '0';
         variable rotate_var : std_logic := '0';
     begin
+        
+        --clear_full_rows(g, score);
         if rising_edge(slow_clk) then
             tetromino <= fetch_tetromino(block_type, 0);
             if left_signal = '1' then
@@ -185,7 +187,7 @@ begin
                 if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
                     -- If collision detected, lock the tetromino into the grid
                     lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-        
+                    clear_full_rows(g, score);
                     -- Reset the piece position to spawn a new tetromino
                     piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                     piece_pos_y <= 0;
@@ -224,7 +226,7 @@ begin
                 if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
                     -- If collision detected, lock the tetromino into the grid
                     lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-        
+                    clear_full_rows(g, score);
                     -- Reset the piece position to spawn a new tetromino
                     piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                     piece_pos_y <= 0;
@@ -267,7 +269,7 @@ begin
                     if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, rotated_piece, shadow_grid) then
                         -- If collision detected, lock the piece into the grid
                         lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
-
+                        clear_full_rows(g, score);
                         -- Reset the piece position to spawn a new tetromino
                         piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                         piece_pos_y <= 0;
@@ -295,7 +297,7 @@ begin
                     if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
                         -- If collision detected, lock the piece into the grid
                         lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-
+                        clear_full_rows(g, score);
                         -- Reset the piece position to spawn a new tetromino
                         piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                         piece_pos_y <= 0;
@@ -331,7 +333,7 @@ begin
                 if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
                     -- If collision detected, lock the tetromino into the grid
                     lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-        
+                    clear_full_rows(g, score);
                     -- Reset the piece position to spawn a new tetromino
                     piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                     piece_pos_y <= 0;
