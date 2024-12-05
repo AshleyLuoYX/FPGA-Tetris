@@ -18,8 +18,8 @@ entity top_level is
         raw_right  : in  std_logic;                  -- Raw input for move right
         raw_rotate : in  std_logic;                   -- Raw input for rotate
         led         : out STD_LOGIC_VECTOR(1 downto 0); -- LEDs for output
-       grid_debug : out std_logic_vector((20 * 12) - 1 downto 0); -- Debug grid output
-        input_debug : out std_logic -- Debug collision output
+       grid_debug : out std_logic_vector((20 * 12) - 1 downto 0) -- Debug grid output
+        -- input_debug : out std_logic -- Debug collision output
     );
 end entity;
 
@@ -58,22 +58,22 @@ architecture Behavioral of top_level is
     
     signal rotation : integer range 0 to 3 := 0;                -- Default rotation index (0 degrees)
     signal block_type : integer range 0 to 6 := 5;              -- Current tetromino type
-    signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
+    -- signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
 
 --     Internal signals for debounced outputs
     --  signal debounced_left   : std_logic;
     --  signal debounced_right  : std_logic;
     --  signal debounced_rotate : std_logic;
     
-    signal left_signal : std_logic := '0';
-    signal right_signal : std_logic := '0';
-    signal rotate_signal : std_logic := '0';
+    -- signal left_signal : std_logic := '0';
+    -- signal right_signal : std_logic := '0';
+    -- signal rotate_signal : std_logic := '0';
 
-    signal reset_left_signal : std_logic := '0';
-    signal reset_right_signal : std_logic := '0';
-    signal reset_rotate_signal : std_logic := '0';
+    -- signal reset_left_signal : std_logic := '0';
+    -- signal reset_right_signal : std_logic := '0';
+    -- signal reset_rotate_signal : std_logic := '0';
 
-    signal input_signal : std_logic := '0';
+    -- signal input_signal : std_logic := '0';
 begin
 
     -- Clock Divider for Slow Movement
@@ -97,34 +97,37 @@ begin
     --      debounced_reset => open            -- Debounced reset signal (optional)       
     --  );
 
-    process (clk)
-    begin
-        if rising_edge(clk) then
-            if raw_left = '1' then
-                left_signal <= '1';
-                led <= "01";
-            elsif raw_right = '1' then
-                right_signal <= '1';
-                led <= "10";
-            elsif raw_rotate = '1' then
-                rotate_signal <= '1';
-                led <= "11";
-            else
-                led <= "00";
-                -- do nothing
-            end if;
+    -- process (clk)
+    -- begin
+    --     if rising_edge(clk) then
+    --         -- if raw_left = '1' then
+    --         if debounced_left = '1' then
+    --             left_signal <= '1';
+    --             led <= "01";
+    --         -- elsif raw_right = '1' then
+    --         elsif debounced_right = '1' then
+    --             right_signal <= '1';
+    --             led <= "10";
+    --         -- elsif raw_rotate = '1' then
+    --         elsif debounced_rotate = '1' then
+    --             rotate_signal <= '1';
+    --             led <= "11";
+    --         else
+    --             led <= "00";
+    --             -- do nothing
+    --         end if;
 
-            if reset_left_signal = '1' then
-                left_signal <= '0';
-            elsif reset_right_signal = '1' then
-                right_signal <= '0';
-            elsif reset_rotate_signal = '1' then
-                rotate_signal <= '0';
-            else
-                -- do nothing
-            end if;
-        end if;
-    end process;
+    --         if reset_left_signal = '1' then
+    --             left_signal <= '0';
+    --         elsif reset_right_signal = '1' then
+    --             right_signal <= '0';
+    --         elsif reset_rotate_signal = '1' then
+    --             rotate_signal <= '0';
+    --         else
+    --             -- do nothing
+    --         end if;
+    --     end if;
+    -- end process;
 
     -- Main Falling Logic
     falling_logic: process (slow_clk, block_type, piece_pos_x, piece_pos_y, rotation, g, shadow_grid)
@@ -139,12 +142,14 @@ begin
         if rising_edge(slow_clk) then
             tetromino <= fetch_tetromino(block_type, rotation);
             -- Combine input signals into a single state
-            input_state := left_signal & right_signal & rotate_signal;
+            -- input_state := left_signal & right_signal & rotate_signal;
+            -- input_state := debounced_left & debounced_right & debounced_rotate;
+            input_state := raw_left & raw_right & raw_rotate;
 
             -- Case statement for the combined input state
             case input_state is
             when "100" =>
-                input_signal <= '1';
+                -- input_signal <= '1';
                 -- Initialize temporary variables with current signal values
                 temp_piece_pos_x := piece_pos_x;
                 temp_piece_pos_y := piece_pos_y;
@@ -166,6 +171,7 @@ begin
                     -- Reset the piece position to spawn a new tetromino
                     piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                     piece_pos_y <= 0;
+                    rotation <= 0; -- Reset rotation
                 else
                     -- Move the tetromino down
                     temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -183,9 +189,9 @@ begin
                 -- Clear the tetromino's new position from the shadow grid
                 delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-                reset_left_signal <= '1';
-                reset_right_signal <= '0';
-                reset_rotate_signal <= '0';
+                -- reset_left_signal <= '1';
+                -- reset_right_signal <= '0';
+                -- reset_rotate_signal <= '0';
 
             when "010" =>
                 -- Initialize temporary variables with current signal values
@@ -209,6 +215,7 @@ begin
                     -- Reset the piece position to spawn a new tetromino
                     piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                     piece_pos_y <= 0;
+                    rotation <= 0; -- Reset rotation
                 else
                     -- Move the tetromino down
                     temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -226,9 +233,9 @@ begin
                 -- Clear the tetromino's new position from the shadow grid
                 delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-                reset_right_signal <= '1';
-                reset_left_signal <= '0';
-                reset_rotate_signal <= '0';
+                -- reset_right_signal <= '1';
+                -- reset_left_signal <= '0';
+                -- reset_rotate_signal <= '0';
 
             when "001" =>
                 -- Initialize temporary variables with current signal values
@@ -276,7 +283,7 @@ begin
                     delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
 
                 else
-                    input_signal <= '0';
+                    -- input_signal <= '0';
                     -- Check for collision below
                     if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
                         -- If collision detected, lock the piece into the grid
@@ -305,9 +312,9 @@ begin
                     delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
                 end if;
 
-                reset_rotate_signal <= '1';
-                reset_left_signal <= '0';
-                reset_right_signal <= '0';
+                -- reset_rotate_signal <= '1';
+                -- reset_left_signal <= '0';
+                -- reset_right_signal <= '0';
             
             when others =>
                 -- Initialize temporary variables with current signal values
@@ -325,6 +332,7 @@ begin
                     -- Reset the piece position to spawn a new tetromino
                     piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                     piece_pos_y <= 0;
+                    rotation <= 0; -- Reset rotation
                 else
                     -- Move the tetromino down
                     temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -342,9 +350,9 @@ begin
                 -- Clear the tetromino's new position from the shadow grid
                 delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
 
-                reset_left_signal <= '0';
-                reset_right_signal <= '0';
-                reset_rotate_signal <= '0';
+                -- reset_left_signal <= '0';
+                -- reset_right_signal <= '0';
+                -- reset_rotate_signal <= '0';
             end case;
         end if;
 
@@ -357,7 +365,7 @@ begin
         if rising_edge(clk) then
             grid_serialized <= serialize_grid(g);
             grid_debug <= serialize_grid(g);
-            input_debug <= input_signal;
+            -- input_debug <= input_signal;
         end if;
     end process;
 
