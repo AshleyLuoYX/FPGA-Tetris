@@ -44,6 +44,8 @@ package tetris_utils is
 
     function serialize_grid(signal g : Grid) return std_logic_vector;
 
+    function check_game_over(signal g: Grid) return boolean;
+
     -- -- Update Piece Location Procedure Declaration
 	-- procedure update_piece_loc(
 	-- 	signal g : inout Grid;                  -- Game grid to be updated
@@ -216,6 +218,17 @@ package body tetris_utils is
             end loop;
         end loop;
         return serialized;
+    end function;
+
+    function check_game_over(signal g: Grid) return boolean is
+    begin
+        -- Check the spawn area (top-center of the grid)
+        for px in 0 to 3 loop
+            if g(1, (COLS / 2 - 2) + px) = '1' then
+                return true; -- Spawn area is occupied
+            end if;
+        end loop;
+        return false; -- Spawn area is clear
     end function;
 
     -- -- Update Piece Location Procedure
