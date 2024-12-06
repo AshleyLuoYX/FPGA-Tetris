@@ -21,7 +21,9 @@ entity top_level is
         grid_debug : out std_logic_vector((20 * 12) - 1 downto 0); -- Debug grid output
         TB_slow_clk      : out std_logic;                    -- Observable slow clock
         TB_divide_count  : out integer;                      -- Observable divide count
-        TB_score         : out integer                       -- Observable score
+        TB_score         : out integer;                       -- Observable score
+        TB_random_tetromino : out integer;
+        TB_block_type : out integer
     );
 end entity;
 
@@ -48,9 +50,9 @@ architecture Behavioral of top_level is
     -- Game Grid
     --signal g : Grid := (others => (others => '0')); -- 20x12 game grid
     signal g : Grid := (
-        
-        15 => ("111101111111"), 
-        16 => ("111101111111"),
+        14 => ("111000001111"),
+        15 => ("111100011111"), 
+        16 => ("111110111111"),
         17 => ("111101111111"), 
         18 => ("111101111111"),
         19 => ("000011110000"), 
@@ -63,28 +65,14 @@ architecture Behavioral of top_level is
     signal piece_pos_y : integer range 0 to ROWS - 1 := 0;            -- Start Y position
 
     -- Temporary New X and Y Position
-    signal new_piece_pos_x : integer range 0 to COLS - 1;
-    signal new_piece_pos_y : integer range 0 to ROWS - 1;
+--    signal new_piece_pos_x : integer range 0 to COLS - 1;
+--    signal new_piece_pos_y : integer range 0 to ROWS - 1;
 
-    signal shadow_grid : Grid := (others => (others => '0'));
+    signal shadow_grid : Grid := g;
     
     signal rotation : integer range 0 to 3 := 0;                -- Default rotation index (0 degrees)
-    signal block_type : integer range 0 to 6 := 0;              -- Current tetromino type
-    signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
-
-    -- Internal signals for debounced outputs
-    -- signal debounced_left   : std_logic;
-    -- signal debounced_right  : std_logic;
-    -- signal debounced_rotate : std_logic;
-    
-    signal left_signal : std_logic := '0';
-    signal right_signal : std_logic := '0';
-    signal rotate_signal : std_logic := '0';
-
-    -- signal reset_left_signal : std_logic := '0';
-    -- signal reset_right_signal : std_logic := '0';
-    -- signal reset_rotate_signal : std_logic := '0';
-    
+    signal block_type : integer range 0 to 6 := 6;              -- Current tetromino type
+    --signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
     
     -- Clock Divider for Slow Movement
     signal slow_clk : std_logic;
@@ -92,14 +80,15 @@ architecture Behavioral of top_level is
     signal score : integer := 0; -- Score counter
     
     signal game_over : std_logic := '0'; -- Game over signal
-
+    signal random_tetromino : integer;
 
 begin
     -- Map internal signals to output ports
     TB_slow_clk <= slow_clk; -- Expose slow clock
     TB_divide_count <= current_divide_count; -- Expose divide count
     TB_score <= score; -- Expose score
-    
+    TB_random_tetromino <= random_tetromino;
+    TB_block_type <= block_type;
     
     -- Clock Divider for Slow Movement
     clk_div_inst: entity work.clock_divider
@@ -110,6 +99,15 @@ begin
             clk_out => slow_clk
         );
      
+     -- Clock Divider for Slow Movement
+    rand_num_inst: entity work.random_num
+        port map (
+            clk => slow_clk,
+            reset => reset,
+            random_number => random_tetromino
+        );
+        
+        
      -- Process to update divide_count based on score
     process (score)
     begin
@@ -142,44 +140,57 @@ begin
 --            --grid_debug <= serialize_grid(g);
 --        end if;
 --    end process;
-    
-    -- input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
-    -- port map (
-    --     clk             => clk,           -- System clock
-    --     reset           => reset,         -- Reset signal
-    --     raw_left        => raw_left,      -- Raw input for move left
-    --     raw_right       => raw_right,     -- Raw input for move right
-    --     raw_rotate      => raw_rotate,    -- Raw input for rotate
-    --     move_left       => debounced_left, -- Debounced move_left signal
-    --     move_right      => debounced_right, -- Debounced move_right signal
-    --     rotate          => debounced_rotate, -- Debounced rotate signal
-    --     debounced_reset => open            -- Debounced reset signal (optional)       
-    -- );
 
     -- Main Falling Logic
-    falling_logic: process (slow_clk)
+    falling_logic: process (slow_clk, block_type, piece_pos_x, piece_pos_y, rotation, g, shadow_grid)
         variable temp_piece_pos_x : integer range 0 to COLS - 1;
         variable temp_piece_pos_y : integer range 0 to ROWS - 1;
         -- For rotation
         variable temp_rotation : integer range 0 to 3;
         variable rotated_piece : std_logic_vector(0 to 15);
 
-        variable left_var : std_logic := '0';
-        variable right_var : std_logic := '0';
-        variable rotate_var : std_logic := '0';
+        variable input_state : std_logic_vector(2 downto 0);
+
+        variable flag : std_logic := '0';
+        -- variable new_flag : std_logic := '0';
     begin
         
-        --clear_full_rows(g, score);
         if rising_edge(slow_clk) then
-            if game_over = '0' then 
-                tetromino <= fetch_tetromino(block_type, 0);
-                if left_signal = '1' then
+        	if flag = '1' then
+				flag := '0';
+				--block_type <= random_tetromino;
+				shadow_grid <= g;
+			end if;
+        
+        	tetromino <= fetch_tetromino(block_type, rotation);
+
+            -- Combine input signals into a single state
+            -- input_state := left_signal & right_signal & rotate_signal;
+            -- input_state := debounced_left & debounced_right & debounced_rotate;
+            input_state := raw_left & raw_right & raw_rotate;
+
+            -- if new_flag = '0' then
+            --     if piece_pos_y = 0 then
+            --         -- Lock the tetromino into the main grid at the spawn position
+            --         lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
+            --         piece_pos_y <= piece_pos_y + 1;
+            --     else
+            --         delete_piece(g, piece_pos_x, piece_pos_y - 1, tetromino);
+            --         piece_pos_y <= 0;
+            --         new_flag := '1';
+            --     end if;
+            -- else
+                -- Case statement for the combined input state
+                case input_state is
+                when "100" =>
                     -- Initialize temporary variables with current signal values
                     temp_piece_pos_x := piece_pos_x;
                     temp_piece_pos_y := piece_pos_y;
-            
-                    -- Clear the current tetromino from the main grid
-                    delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+
+                    if temp_piece_pos_y /= 0 then
+                        -- Clear the current tetromino from the main grid
+                        delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                    end if;
             
                     -- Test move-left animation
                     if not collision_detected(temp_piece_pos_x - 1, temp_piece_pos_y, tetromino, shadow_grid) then
@@ -189,18 +200,23 @@ begin
             
                     -- Check for collision below
                     if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                        -- If collision detected, lock the tetromino into the grid
-                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                        clear_full_rows(g, score);
-                        
-                        if (check_game_over(g)) then
-                            game_over <= '1';
-                        else
-                            -- Reset the piece position to spawn a new tetromino
-                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                            piece_pos_y <= 0;
-                        end if;
+                        if temp_piece_pos_y /= 0 then
 
+                            -- If collision detected, lock the tetromino into the grid
+                            lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                        end if;
+                
+                        clear_full_rows(g, score);
+                        block_type <= random_tetromino;
+                        flag := '1';
+                        -- new_flag := '0';
+            
+                        -- Reset the piece position to spawn a new tetromino
+--                        clear_full_rows(g, score);
+                        piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                        piece_pos_y <= 0;
+                        rotation <= 0; -- Reset rotation
+                        tetromino <= fetch_tetromino(block_type, 0);
                     else
                         -- Move the tetromino down
                         temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -212,19 +228,20 @@ begin
                         piece_pos_x <= temp_piece_pos_x;
                         piece_pos_y <= temp_piece_pos_y;
                     end if;
-    
-                    -- Update shadow grid for visualization
-                    shadow_grid <= g;
-                    -- Clear the tetromino's new position from the shadow grid
-                    delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                elsif right_signal = '1' then
+
+                    -- reset_left_signal <= '1';
+                    -- reset_right_signal <= '0';
+                    -- reset_rotate_signal <= '0';
+
+                when "010" =>
                     -- Initialize temporary variables with current signal values
                     temp_piece_pos_x := piece_pos_x;
                     temp_piece_pos_y := piece_pos_y;
             
-                    -- Clear the current tetromino from the main grid
-                    delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                    if temp_piece_pos_y /= 0 then
+                        -- Clear the current tetromino from the main grid
+                        delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                    end if;
             
                     -- Test move-left animation
                     if not collision_detected(temp_piece_pos_x + 1, temp_piece_pos_y, tetromino, shadow_grid) then
@@ -234,18 +251,22 @@ begin
             
                     -- Check for collision below
                     if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                        -- If collision detected, lock the tetromino into the grid
-                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                        clear_full_rows(g, score);
-                        
-                        if (check_game_over(g)) then
-                            game_over <= '1';
-                        else
-                            -- Reset the piece position to spawn a new tetromino
-                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                            piece_pos_y <= 0;
+                        if temp_piece_pos_y /= 0 then
+
+                            -- If collision detected, lock the tetromino into the grid
+                            lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
                         end if;
 
+                        flag := '1';
+                        -- new_flag := '0';
+            
+                        -- Reset the piece position to spawn a new tetromino
+                        clear_full_rows(g, score);
+                        block_type <= random_tetromino;
+                        piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                        piece_pos_y <= 0;
+                        rotation <= 0; -- Reset rotation
+                        tetromino <= fetch_tetromino(block_type, 0);
                     else
                         -- Move the tetromino down
                         temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -257,112 +278,126 @@ begin
                         piece_pos_x <= temp_piece_pos_x;
                         piece_pos_y <= temp_piece_pos_y;
                     end if;
-                    -- Update shadow grid for visualization
-                    shadow_grid <= g;
-            
-                    -- Clear the tetromino's new position from the shadow grid
-                    delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                elsif rotate_signal = '1' then
+
+                    -- reset_right_signal <= '1';
+                    -- reset_left_signal <= '0';
+                    -- reset_rotate_signal <= '0';
+
+                when "001" =>
                     -- Initialize temporary variables with current signal values
                     temp_piece_pos_x := piece_pos_x;
                     temp_piece_pos_y := piece_pos_y;
                     temp_rotation := rotation;
-    
-                    -- Clear the current position of the tetromino from the main grid
-                    delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
+
+                    if temp_piece_pos_y /= 0 then
+                        -- Clear the current tetromino from the main grid
+                        delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                    end if;
+
                     -- Handle Rotation
                     temp_rotation := (rotation + 1) mod 4; -- Increment rotation
                     rotated_piece := rotate_piece(block_type, temp_rotation);
-    
+
                     if not collision_detected(temp_piece_pos_x, temp_piece_pos_y, rotated_piece, shadow_grid) then
                         -- Apply rotation if no collision
                         tetromino <= rotated_piece;
                         rotation <= temp_rotation;
-    
+
                         -- Check for collision below
                         if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, rotated_piece, shadow_grid) then
-                            -- If collision detected, lock the piece into the grid
-                            lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
-                            clear_full_rows(g, score);
+                            if temp_piece_pos_y /= 0 then
+
+                                -- If collision detected, lock the tetromino into the grid
+                                lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
+                            end if;
+
+                            flag := '1';
+                            -- new_flag := '0';
+
                             -- Reset the piece position to spawn a new tetromino
+                            clear_full_rows(g, score);
+                            block_type <= random_tetromino;
                             piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                             piece_pos_y <= 0;
                             rotation <= 0; -- Reset rotation
+                            tetromino <= fetch_tetromino(block_type, 0);
                         else
                             -- Move the tetromino down
                             temp_piece_pos_y := temp_piece_pos_y + 1;
-    
+
                             -- Lock the tetromino into the grid at the new position
                             lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
-    
+
                             -- Assign updated temporary positions back to signals
                             piece_pos_x <= temp_piece_pos_x;
                             piece_pos_y <= temp_piece_pos_y;
                         end if;
-    
-                        -- Update shadow grid for visualization
-                        shadow_grid <= g;
-    
-                        -- Clear the tetromino's new position from the shadow grid
-                        delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
-    
+
                     else
+                        -- input_signal <= '0';
                         -- Check for collision below
                         if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                            -- If collision detected, lock the piece into the grid
-                            lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                            clear_full_rows(g, score);
-                            
-                             if (check_game_over(g)) then
-                                game_over <= '1';
-                            else
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                piece_pos_y <= 0;
-                                rotation <= 0; -- Reset rotation
+                            if temp_piece_pos_y /= 0 then
+
+                                -- If collision detected, lock the tetromino into the grid
+                                lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
                             end if;
 
+                            flag := '1';
+                            -- new_flag := '0';
+
+                            -- Reset the piece position to spawn a new tetromino
+                            clear_full_rows(g, score);
+                            block_type <= random_tetromino;
+                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                            piece_pos_y <= 0;
+                            rotation <= 0; -- Reset rotation
+                            tetromino <= fetch_tetromino(block_type, 0);
                         else
                             -- Move the tetromino down
                             temp_piece_pos_y := temp_piece_pos_y + 1;
-    
+
                             -- Lock the tetromino into the grid at the new position
                             lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
+
                             -- Assign updated temporary positions back to signals
                             piece_pos_x <= temp_piece_pos_x;
                             piece_pos_y <= temp_piece_pos_y;
                         end if;
-    
-                        -- Update shadow grid for visualization
-                        shadow_grid <= g;
-    
-                        -- Clear the tetromino's new position from the shadow grid
-                        delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
                     end if;
-    
-                else
+
+                    -- reset_rotate_signal <= '1';
+                    -- reset_left_signal <= '0';
+                    -- reset_right_signal <= '0';
+                
+                when others =>
                     -- Initialize temporary variables with current signal values
                     temp_piece_pos_x := piece_pos_x;
                     temp_piece_pos_y := piece_pos_y;
             
-                    -- Clear the current tetromino from the main grid
-                    delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
+                    if temp_piece_pos_y /= 0 then
+--                        -- Clear the current tetromino from the main grid
+                        delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
+                    end if;
+
                     -- Check for collision below
                     if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                        -- If collision detected, lock the tetromino into the grid
-                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                        clear_full_rows(g, score);
-                        
-                         if (check_game_over(g)) then
-                            game_over <= '1';
-                        else
-                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                            piece_pos_y <= 0;
+                        if temp_piece_pos_y /= 0 then
+
+--                            -- If collision detected, lock the tetromino into the grid
+                            lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
                         end if;
 
+                        flag := '1';
+                        -- new_flag := '0';
+            
+                        -- Reset the piece position to spawn a new tetromino
+                        clear_full_rows(g, score);
+                        block_type <= random_tetromino;
+                        piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                        piece_pos_y <= 0;
+                        rotation <= 0; -- Reset rotation
+                        tetromino <= fetch_tetromino(block_type, 0);
                     else
                         -- Move the tetromino down
                         temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -374,39 +409,16 @@ begin
                         piece_pos_x <= temp_piece_pos_x;
                         piece_pos_y <= temp_piece_pos_y;
                     end if;
-                    -- Update shadow grid for visualization
-                    shadow_grid <= g;
-            
-                    -- Clear the tetromino's new position from the shadow grid
-                    delete_piece(shadow_grid, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                end if;
-            else --when game_over = '1'
-                led <= "11";
-            end if;
 
-        elsif falling_edge(slow_clk) then
-            left_var := '0';
-            right_var := '0';
-            rotate_var := '0';
+                    -- reset_left_signal <= '0';
+                    -- reset_right_signal <= '0';
+                    -- reset_rotate_signal <= '0';
+                end case;
 
-        elsif rising_edge(clk) then
-            -- if debounced_left = '1' then
-            if raw_left = '1' then
-                left_var := '1';
-            -- elsif debounced_right = '1' then
-            elsif raw_right = '1' then
-                right_var := '1';
-            -- elsif debounced_rotate = '1' then
-            elsif raw_rotate = '1' then
-                rotate_var := '1';
-            else
-                -- do nothing
-            end if;
-            left_signal <= left_var;
-            right_signal <= right_var;
-            rotate_signal <= rotate_var;
+			--end if;
+            -- end if;
         end if;
+
     end process;
 
 
