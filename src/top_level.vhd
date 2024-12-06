@@ -141,15 +141,15 @@ begin
         variable flag : std_logic := '0';
         -- variable new_flag : std_logic := '0';
     begin
-
-        if flag = '1' then
-            flag := '0';
-            shadow_grid <= g;
-        end if;
-
-        tetromino <= fetch_tetromino(block_type, rotation);
         
         if rising_edge(slow_clk) then
+        
+        	if flag = '1' then
+				flag := '0';
+				shadow_grid <= g;
+			end if;
+        
+        	tetromino <= fetch_tetromino(block_type, rotation);
 
             -- Combine input signals into a single state
             -- input_state := left_signal & right_signal & rotate_signal;
@@ -201,6 +201,7 @@ begin
                         piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                         piece_pos_y <= 0;
                         rotation <= 0; -- Reset rotation
+                        tetromino <= fetch_tetromino(block_type, 0);
                     else
                         -- Move the tetromino down
                         temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -249,6 +250,7 @@ begin
                         piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                         piece_pos_y <= 0;
                         rotation <= 0; -- Reset rotation
+                        tetromino <= fetch_tetromino(block_type, 0);
                     else
                         -- Move the tetromino down
                         temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -301,6 +303,7 @@ begin
                             piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                             piece_pos_y <= 0;
                             rotation <= 0; -- Reset rotation
+                            tetromino <= fetch_tetromino(block_type, 0);
                         else
                             -- Move the tetromino down
                             temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -331,6 +334,7 @@ begin
                             piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                             piece_pos_y <= 0;
                             rotation <= 0; -- Reset rotation
+                            tetromino <= fetch_tetromino(block_type, 0);
                         else
                             -- Move the tetromino down
                             temp_piece_pos_y := temp_piece_pos_y + 1;
@@ -374,6 +378,7 @@ begin
                         piece_pos_x <= COLS / 2 - 2; -- Centered spawn
                         piece_pos_y <= 0;
                         rotation <= 0; -- Reset rotation
+                        tetromino <= fetch_tetromino(block_type, 0);
                     else
                         -- Move the tetromino down
                         temp_piece_pos_y := temp_piece_pos_y + 1;
