@@ -45,7 +45,6 @@ package tetris_utils is
     function serialize_grid(signal g : Grid) return std_logic_vector;
 
     function check_game_over(signal g: Grid) return boolean;
-
     -- -- Update Piece Location Procedure Declaration
 	-- procedure update_piece_loc(
 	-- 	signal g : inout Grid;                  -- Game grid to be updated
@@ -91,7 +90,7 @@ package body tetris_utils is
         for read_row in ROWS-1 downto 0 loop
             -- Use the get_row function to check if the row is full
             if not is_row_full(get_row(g, read_row)) then
-                -- If the row is not full, move it to the `write_row` position
+                -- If the row is not full, move it to the write_row position
                 for col in 0 to COLS-1 loop
                     g(write_row, col) <= g(read_row, col);
                 end loop;
@@ -101,13 +100,15 @@ package body tetris_utils is
                 rows_cleared := rows_cleared + 1;
             end if;
         end loop;
-
-        -- Clear the remaining rows above the write_row index
-        for r in write_row downto 0 loop
-            for col in 0 to COLS-1 loop
-                g(r, col) <= '0';
-            end loop;
+        
+        for r in ROWS-1 downto 0 loop
+            if r <= write_row then
+                for col in 0 to COLS-1 loop
+                    g(r, col) <= '0';
+                end loop;
+            end if;
         end loop;
+
 
         -- Update the score based on rows cleared
         score <= score + rows_cleared; -- Example scoring: 10 points per cleared row
