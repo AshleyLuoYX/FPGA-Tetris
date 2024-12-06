@@ -3,13 +3,14 @@ use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
+use work.tetris_utils.all;
 
 entity vga_controller_simple_tetris is
     Port (
         clk       : in  std_logic;                  -- System clock
         reset     : in  std_logic;                  -- Reset signal
         tx        : out std_logic;                  -- UART TX signal
-        grid      : in  std_logic_vector(239 downto 0); -- Input grid (20 rows * 12 columns)
+        grid      : in  std_logic_vector(ROWS * COLS - 1 downto 0); -- Input grid (20 rows * 12 columns)
         red       : out std_logic_vector(1 downto 0); -- VGA red signal
         green     : out std_logic_vector(1 downto 0); -- VGA green signal
         blue      : out std_logic_vector(1 downto 0); -- VGA blue signal

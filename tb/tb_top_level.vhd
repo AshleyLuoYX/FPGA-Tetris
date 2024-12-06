@@ -24,8 +24,7 @@ architecture Behavioral of tb_top_level is
             raw_left   : in  std_logic;
             raw_right  : in  std_logic;
             raw_rotate : in  std_logic;
-            led        : out std_logic_vector(1 downto 0);
-            input_debug : out std_logic
+            led        : out std_logic_vector(1 downto 0)
         );
     end component;
 
@@ -42,7 +41,6 @@ architecture Behavioral of tb_top_level is
     signal vsync      : std_logic;
     signal grid_debug : std_logic_vector((20 * 12) - 1 downto 0);
     signal led        : std_logic_vector(1 downto 0);
-    signal input_debug : std_logic;
 
     -- Clock period
     constant clk_period : time := 10 ns; -- 12 MHz clock period
@@ -89,15 +87,6 @@ architecture Behavioral of tb_top_level is
         report grid_string;
     end procedure;
 
-    function to_string(signal s : std_logic) return string is
-    begin
-        if s = '1' then
-            return "1";
-        else
-            return "0";
-        end if;
-    end function;
-
 begin
 
     -- Instantiate the top-level entity
@@ -135,35 +124,42 @@ begin
         wait for clk_period * 2 * 100;
         print_grid(grid_debug);
 
+        wait for clk_period * 2 * 100;
+        print_grid(grid_debug);
+
         -- Simulate raw_left input
         raw_left <= '1';
         wait for clk_period * 5; -- Let the block move left
         raw_left <= '0';
-        wait for clk_period * 100;
+        wait for clk_period * 2 * 100;
         report "Grid state after raw_left input:";
         print_grid(grid_debug);
-        wait for clk_period * 100;
 
         -- Simulate raw_right input
         raw_right <= '1';
         wait for clk_period * 5; -- Let the block move right
         raw_right <= '0';
-        wait for clk_period * 100;
+        wait for clk_period * 2 * 100;
         report "Grid state after raw_right input:";
         print_grid(grid_debug);
-        wait for clk_period * 100;
 
         -- Simulate raw_rotate input
         raw_rotate <= '1';
         wait for clk_period * 5; -- Let the block rotate
         raw_rotate <= '0';
-        wait for clk_period * 100;
+        wait for clk_period * 2 * 100;
         report "Grid state after raw_rotate input:";
         print_grid(grid_debug);
-        wait for clk_period * 100;
 
-        wait for clk_period * 2 * 100;
-        print_grid(grid_debug);
+        -- -- Simulate raw_right and raw_rotate together
+        -- raw_right <= '1';
+        -- raw_rotate <= '1';
+        -- wait for clk_period * 2 * 100;
+        -- raw_right <= '0';
+        -- raw_rotate <= '0';
+        -- wait for clk_period * 2 * 100;
+        -- report "Grid state after raw_right and raw_rotate inputs:";
+        -- print_grid(grid_debug);
 
         -- End the simulation
         report "Testbench completed.";

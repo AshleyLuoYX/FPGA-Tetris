@@ -2,10 +2,12 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 
+use work.tetris_utils.all;
+
 entity grid_generator_simple is
     port (
         clk       : in std_logic;                  -- System clock
-        grid      : in std_logic_vector(239 downto 0); -- Input grid (20 rows * 12 columns)
+        grid      : in std_logic_vector(ROWS * COLS - 1 downto 0); -- Input grid (20 rows * 12 columns)
         hcount    : in unsigned(9 downto 0);       -- Horizontal pixel counter
         vcount    : in unsigned(9 downto 0);       -- Vertical pixel counter
         obj_red   : out std_logic_vector(1 downto 0); -- Red color signal
@@ -29,8 +31,8 @@ begin
     begin
         if rising_edge(clk) then
             -- Calculate grid cell coordinates
-            grid_x <= (to_integer(hcount) - start_x) / cell_width; -- Horizontal block index
-            grid_y <= (to_integer(vcount) - start_y) / cell_height; -- Vertical block index
+            grid_x <= (to_integer(hcount) - start_x) / cell_width + 3; -- Horizontal block index
+            grid_y <= (to_integer(vcount) - start_y) / cell_height + 3; -- Vertical block index
 
             -- Check if pixel is within the grid display area
             if (to_integer(hcount) >= start_x and
@@ -39,8 +41,8 @@ begin
                 to_integer(vcount) < start_y + (20 * cell_height)) then
 
                 -- Display block content
-                if (grid_x >= 0 and grid_x < 12 and grid_y >= 0 and grid_y < 20 and
-                    grid(grid_y * 12 + grid_x) = '1') then
+                if (grid_x >= 3 and grid_x < COLS-3 and grid_y >= 3 and grid_y < ROWS and
+                    grid(grid_y * COLS + grid_x) = '1') then
                     obj_red <= "11"; -- Red for locked blocks
                     obj_grn <= "00";
                     obj_blu <= "00";

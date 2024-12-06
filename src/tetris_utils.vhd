@@ -6,8 +6,8 @@ use IEEE.NUMERIC_STD.ALL;
 package tetris_utils is
 
     -- Constants
-    constant ROWS : integer := 20;                -- Number of rows in the grid
-    constant COLS : integer := 12;                -- Number of columns in the grid
+    constant ROWS : integer := 23;                -- Number of rows in the grid
+    constant COLS : integer := 18;                -- Number of columns in the grid
 
     -- Types
     type Grid is array (0 to ROWS-1, 0 to COLS-1) of std_logic;
@@ -35,6 +35,10 @@ package tetris_utils is
     procedure delete_piece(
         signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
     );
+
+--    procedure delete_piece_variable(
+--        variable g : inout Grid; x : integer; y : integer; piece : std_logic_vector
+--    );
 
     function serialize_grid(signal g : Grid) return std_logic_vector;
 
@@ -73,7 +77,7 @@ package body tetris_utils is
                     gy := y + py;       -- Grid y-coordinate
                     
                     -- Check for boundary collisions (left, right, bottom)
-                    if gx < 0 or gx >= COLS or gy < 0 or gy >= ROWS then
+                    if gx < 3 or gx >= COLS-3 or gy < 0 or gy >= ROWS then
                         return true;    -- Collision with boundaries detected
                     end if;
     

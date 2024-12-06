@@ -17,27 +17,27 @@ entity top_level is
         raw_left   : in  std_logic;                  -- Raw input for move left
         raw_right  : in  std_logic;                  -- Raw input for move right
         raw_rotate : in  std_logic;                   -- Raw input for rotate
-        led         : out STD_LOGIC_VECTOR(1 downto 0); -- LEDs for output
-       grid_debug : out std_logic_vector((20 * 12) - 1 downto 0) -- Debug grid output
+        led         : out STD_LOGIC_VECTOR(1 downto 0) -- LEDs for output
+    --    grid_debug : out std_logic_vector((ROWS * COLS) - 1 downto 0) -- Debug grid output
         -- input_debug : out std_logic -- Debug collision output
     );
 end entity;
 
 architecture Behavioral of top_level is
 
-    --  component input_handler
-    --  Port (
-    --      clk         : in  std_logic; -- Clock signal
-    --      reset       : in  std_logic; -- Reset signal
-    --      raw_left    : in  std_logic; -- Raw left button signal
-    --      raw_right   : in  std_logic; -- Raw right button signal
-    --      raw_rotate  : in  std_logic; -- Raw rotate button signal
-    --      move_left   : out std_logic; -- Debounced left button signal
-    --      move_right  : out std_logic; -- Debounced right button signal
-    --      rotate      : out std_logic;  -- Debounced rotate button signal
-    --      debounced_reset : out std_logic              -- Debounced reset signal (optional)
-    --  );
-    --  end component;
+     component input_handler
+     Port (
+         clk         : in  std_logic; -- Clock signal
+         reset       : in  std_logic; -- Reset signal
+         raw_left    : in  std_logic; -- Raw left button signal
+         raw_right   : in  std_logic; -- Raw right button signal
+         raw_rotate  : in  std_logic; -- Raw rotate button signal
+         move_left   : out std_logic; -- Debounced left button signal
+         move_right  : out std_logic; -- Debounced right button signal
+         rotate      : out std_logic;  -- Debounced rotate button signal
+         debounced_reset : out std_logic              -- Debounced reset signal (optional)
+     );
+     end component;
 
     -- VGA Controller Signals
     signal grid_serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
@@ -48,7 +48,7 @@ architecture Behavioral of top_level is
 
     -- Tetromino Signals
     signal tetromino   : std_logic_vector(0 to 15);               -- Tetromino data
-    signal piece_pos_x : integer range 0 to COLS - 1 := COLS / 2 - 2; -- Start X position
+    signal piece_pos_x : integer range 0 to COLS - 1 := COLS / 2 - 1; -- Start X position
     signal piece_pos_y : integer range 0 to ROWS - 1 := 0;            -- Start Y position
 
     -- Clock Divider for Slow Movement
@@ -60,10 +60,10 @@ architecture Behavioral of top_level is
     signal block_type : integer range 0 to 6 := 5;              -- Current tetromino type
     -- signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
 
---     Internal signals for debounced outputs
-    --  signal debounced_left   : std_logic;
-    --  signal debounced_right  : std_logic;
-    --  signal debounced_rotate : std_logic;
+    -- Internal signals for debounced outputs
+     signal debounced_left   : std_logic;
+     signal debounced_right  : std_logic;
+     signal debounced_rotate : std_logic;
     
     -- signal left_signal : std_logic := '0';
     -- signal right_signal : std_logic := '0';
@@ -83,18 +83,18 @@ begin
             clk_out => slow_clk
         );
     
-    --  input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
-    --  port map (
-    --      clk             => clk,           -- System clock
-    --      reset           => reset,         -- Reset signal
-    --      raw_left        => raw_left,      -- Raw input for move left
-    --      raw_right       => raw_right,     -- Raw input for move right
-    --      raw_rotate      => raw_rotate,    -- Raw input for rotate
-    --      move_left       => debounced_left, -- Debounced move_left signal
-    --      move_right      => debounced_right, -- Debounced move_right signal
-    --      rotate          => debounced_rotate, -- Debounced rotate signal
-    --      debounced_reset => open            -- Debounced reset signal (optional)       
-    --  );
+     input_handler_inst: input_handler -- <port being mapped to> => <signal receiving value>
+     port map (
+         clk             => clk,           -- System clock
+         reset           => reset,         -- Reset signal
+         raw_left        => raw_left,      -- Raw input for move left
+         raw_right       => raw_right,     -- Raw input for move right
+         raw_rotate      => raw_rotate,    -- Raw input for rotate
+         move_left       => debounced_left, -- Debounced move_left signal
+         move_right      => debounced_right, -- Debounced move_right signal
+         rotate          => debounced_rotate, -- Debounced rotate signal
+         debounced_reset => open            -- Debounced reset signal (optional)       
+     );
 
     -- process (clk)
     -- begin
@@ -139,7 +139,7 @@ begin
         variable input_state : std_logic_vector(2 downto 0);
 
         variable flag : std_logic := '0';
-        variable new_flag : std_logic := '0';
+        variable new_flag : std_logic := '1';
         variable new_block_flag : std_logic := '1';
     begin
         
@@ -154,19 +154,22 @@ begin
 
             -- Combine input signals into a single state
             -- input_state := left_signal & right_signal & rotate_signal;
-            -- input_state := debounced_left & debounced_right & debounced_rotate;
-            input_state := raw_left & raw_right & raw_rotate;
+            input_state := debounced_left & debounced_right & debounced_rotate;
+            -- input_state := raw_left & raw_right & raw_rotate;
 
             if new_block_flag = '1' then
                 -- do nothing
                 new_block_flag := '0';
             else
-                if new_flag = '0' then
-                    -- if not collision_detected(temp_piece_pos_x, temp_piece_pos_y, tetromino, shadow_grid) then
+                if new_flag = '1' then
+                    if not collision_detected(piece_pos_x, piece_pos_y, tetromino, shadow_grid) then
                         -- Lock the tetromino into the main grid at the spawn position
                         lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
-                    -- end if;
-                    new_flag := '1';
+                        new_flag := '0';
+                    else
+                        -- game over
+                        new_flag := '1';
+                    end if;
                 else
                     -- Case statement for the combined input state
                     case input_state is
@@ -196,11 +199,11 @@ begin
                             end if;
 
                             flag := '1';
-                            new_flag := '0';
+                            new_flag := '1';
                             new_block_flag := '1';
                 
                             -- Reset the piece position to spawn a new tetromino
-                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                            piece_pos_x <= COLS / 2 - 1; -- Centered spawn
                             piece_pos_y <= 0;
                             rotation <= 0; -- Reset rotation
                             tetromino <= fetch_tetromino(block_type, 0);
@@ -246,11 +249,11 @@ begin
                             end if;
 
                             flag := '1';
-                            new_flag := '0';
+                            new_flag := '1';
                             new_block_flag := '1';
                 
                             -- Reset the piece position to spawn a new tetromino
-                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                            piece_pos_x <= COLS / 2 - 1; -- Centered spawn
                             piece_pos_y <= 0;
                             rotation <= 0; -- Reset rotation
                             tetromino <= fetch_tetromino(block_type, 0);
@@ -300,11 +303,11 @@ begin
                                 end if;
 
                                 flag := '1';
-                                new_flag := '0';
+                                new_flag := '1';
                                 new_block_flag := '1';
 
                                 -- Reset the piece position to spawn a new tetromino
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                                piece_pos_x <= COLS / 2 - 1; -- Centered spawn
                                 piece_pos_y <= 0;
                                 rotation <= 0; -- Reset rotation
                                 tetromino <= fetch_tetromino(block_type, 0);
@@ -332,11 +335,11 @@ begin
                                 end if;
 
                                 flag := '1';
-                                new_flag := '0';
+                                new_flag := '1';
                                 new_block_flag := '1';
 
                                 -- Reset the piece position to spawn a new tetromino
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                                piece_pos_x <= COLS / 2 - 1; -- Centered spawn
                                 piece_pos_y <= 0;
                                 rotation <= 0; -- Reset rotation
                                 tetromino <= fetch_tetromino(block_type, 0);
@@ -377,11 +380,11 @@ begin
                             end if;
 
                             flag := '1';
-                            new_flag := '0';
+                            new_flag := '1';
                             new_block_flag := '1';
                 
                             -- Reset the piece position to spawn a new tetromino
-                            piece_pos_x <= COLS / 2 - 2; -- Centered spawn
+                            piece_pos_x <= COLS / 2 - 1; -- Centered spawn
                             piece_pos_y <= 0;
                             rotation <= 0; -- Reset rotation
                             tetromino <= fetch_tetromino(block_type, 0);
@@ -413,7 +416,7 @@ begin
     begin
         if rising_edge(clk) then
             grid_serialized <= serialize_grid(g);
-            grid_debug <= serialize_grid(g);
+            -- grid_debug <= serialize_grid(g);
             -- input_debug <= input_signal;
         end if;
     end process;
