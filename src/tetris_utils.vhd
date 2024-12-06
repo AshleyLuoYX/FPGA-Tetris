@@ -40,7 +40,7 @@ package tetris_utils is
 --        variable g : inout Grid; x : integer; y : integer; piece : std_logic_vector
 --    );
 
-    function serialize_grid(signal g : Grid) return std_logic_vector;
+    -- function serialize_grid(signal g : Grid) return std_logic_vector;
 
     -- -- Update Piece Location Procedure Declaration
 	-- procedure update_piece_loc(
@@ -152,17 +152,17 @@ package body tetris_utils is
         end loop;
     end procedure;
 
-    -- Serialize Grid Function
-    function serialize_grid(signal g : Grid) return std_logic_vector is
-        variable serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
-    begin
-        for row in 0 to ROWS-1 loop
-            for col in 0 to COLS-1 loop
-                serialized((row * COLS) + col) := g(row, col);
-            end loop;
-        end loop;
-        return serialized;
-    end function;
+    -- -- Serialize Grid Function
+    -- function serialize_grid(signal g : Grid) return std_logic_vector is
+    --     variable serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
+    -- begin
+    --     for row in 0 to ROWS-1 loop
+    --         for col in 0 to COLS-1 loop
+    --             serialized((row * COLS) + col) := g(row, col);
+    --         end loop;
+    --     end loop;
+    --     return serialized;
+    -- end function;
 
     -- -- Update Piece Location Procedure
     -- procedure update_piece_loc(

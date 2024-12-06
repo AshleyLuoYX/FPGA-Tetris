@@ -73,6 +73,12 @@ architecture Behavioral of top_level is
     -- signal reset_right_signal : std_logic := '0';
     -- signal reset_rotate_signal : std_logic := '0';
 
+    -- Serialization Signals
+    signal serialize_row    : integer range 0 to ROWS - 1 := 0;
+    signal serialize_col    : integer range 0 to COLS - 1 := 0;
+    signal serialized_reg   : std_logic_vector((ROWS * COLS) - 1 downto 0) := (others => '0');
+--    signal serialization_done : std_logic := '0';
+
 begin
 
     -- Clock Divider for Slow Movement
@@ -410,16 +416,45 @@ begin
 
     end process;
 
-
-    -- Serialize the grid to pass to VGA controller
-    serialize_grid_process: process (clk)
+    -- Serialize Grid Process
+    serialize_process: process(clk)
     begin
         if rising_edge(clk) then
-            grid_serialized <= serialize_grid(g);
-            -- grid_debug <= serialize_grid(g);
-            -- input_debug <= input_signal;
+            if serialize_row < ROWS then
+                -- Serialize the grid row by row
+                serialized_reg((serialize_row * COLS) + serialize_col) <= g(serialize_row, serialize_col);
+
+                if serialize_col < COLS - 1 then
+                    serialize_col <= serialize_col + 1;
+                else
+                    serialize_col <= 0;
+                    serialize_row <= serialize_row + 1;
+                end if;
+            else
+                -- Serialization complete
+--                serialization_done <= '1';
+            end if;
         end if;
     end process;
+
+    -- Assign serialized output only when serialization is done
+    serialized_assignment: process(clk)
+    begin
+--        if serialization_done = '1' then
+            grid_serialized <= serialized_reg;
+--            serialization_done <= '0';
+--        end if;
+    end process;
+
+    -- -- Serialize the grid to pass to VGA controller
+    -- serialize_grid_process: process (clk)
+    -- begin
+    --     if rising_edge(clk) then
+    --         grid_serialized <= serialize_grid(g);
+    --         -- grid_debug <= serialize_grid(g);
+    --         -- input_debug <= input_signal;
+    --     end if;
+    -- end process;
 
     -- VGA Controller Instance
     vga_ctrl_inst: entity work.vga_controller_simple_tetris
