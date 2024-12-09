@@ -13,27 +13,49 @@ architecture Behavioral of tb_top_level is
     -- Component declaration for the top-level entity
     component top_level
         port (
-            clk        : in  std_logic;
-            reset      : in  std_logic;
-            red        : out std_logic_vector(1 downto 0);
-            green      : out std_logic_vector(1 downto 0);
-            blue       : out std_logic_vector(1 downto 0);
-            hsync      : out std_logic;
-            vsync      : out std_logic;
-            grid_debug : out std_logic_vector((20 * 12) - 1 downto 0) -- Debug grid output
+            clk   : in  std_logic;
+            reset : in  std_logic;
+            red   : out std_logic_vector(1 downto 0);
+            green : out std_logic_vector(1 downto 0);
+            blue  : out std_logic_vector(1 downto 0);
+            hsync : out std_logic;
+            vsync : out std_logic;
+            raw_left   : in  std_logic;
+            raw_right  : in  std_logic;
+            raw_rotate : in  std_logic;
+            raw_drop   : in std_logic;
+            led         : out std_logic_vector(1 downto 0);
+            grid_debug : out std_logic_vector((20 * 12) - 1 downto 0);
+            TB_slow_clk   : out std_logic;
+            TB_divide_count : out integer;
+            TB_score      : out integer;
+            TB_random_tetromino : out integer;
+            TB_block_type : out integer;
+            TB_temp_drop_y : out integer
         );
     end component;
 
-    -- Signals to connect to the top-level entity
-    signal clk        : std_logic := '0';
-    signal reset      : std_logic := '0';
-    signal red        : std_logic_vector(1 downto 0);
-    signal green      : std_logic_vector(1 downto 0);
-    signal blue       : std_logic_vector(1 downto 0);
-    signal hsync      : std_logic;
-    signal vsync      : std_logic;
+    -- Testbench signals
+    signal clk   : std_logic := '0';
+    signal reset : std_logic := '0';
+    signal red   : std_logic_vector(1 downto 0);
+    signal green : std_logic_vector(1 downto 0);
+    signal blue  : std_logic_vector(1 downto 0);
+    signal hsync : std_logic;
+    signal vsync : std_logic;
+    signal raw_left   : std_logic := '0';
+    signal raw_right  : std_logic := '0';
+    signal raw_rotate : std_logic := '0';
+    signal raw_drop   : std_logic := '0';
+    signal led         : std_logic_vector(1 downto 0);
     signal grid_debug : std_logic_vector((20 * 12) - 1 downto 0);
-
+    signal TB_slow_clk   : std_logic;
+    signal TB_divide_count : integer;
+    signal TB_score      : integer;
+    signal TB_random_tetromino : integer;
+    signal TB_block_type : integer;
+    signal TB_temp_drop_y : integer;
+    
     -- Clock period
     constant clk_period : time := 10 ns; -- 12 MHz clock period
 
@@ -49,19 +71,60 @@ architecture Behavioral of tb_top_level is
         return grid;
     end function;
 
+    -- Procedure to print the grid state
+    procedure print_grid(serialized : std_logic_vector) is
+        variable grid_array : Grid;
+        variable grid_string : string(1 to 20 * (12 + 1)); -- Extra space for newline characters
+        variable index : integer := 1; -- To track grid_string indexing
+    begin
+        -- Deserialize the grid
+        grid_array := deserialize_grid(serialized);
+
+        -- Initialize the grid_string
+        index := 1;
+        for row in 0 to 19 loop
+            -- Convert each row to a string
+            for col in 0 to 11 loop
+                if grid_array(row, col) = '1' then
+                    grid_string(index) := 'X';
+                else
+                    grid_string(index) := '.';
+                end if;
+                index := index + 1;
+            end loop;
+            -- Add a newline character after each row
+            grid_string(index) := LF; -- Line Feed character
+            index := index + 1;
+        end loop;
+
+        -- Print the entire grid as a single report statement
+        report grid_string;
+    end procedure;
+
 begin
 
     -- Instantiate the top-level entity
     uut: top_level
         port map (
-            clk        => clk,
-            reset      => reset,
-            red        => red,
-            green      => green,
-            blue       => blue,
-            hsync      => hsync,
-            vsync      => vsync,
-            grid_debug => grid_debug -- Connect the debug grid
+            clk       => clk,
+            reset     => reset,
+            red       => red,
+            green     => green,
+            blue      => blue,
+            hsync     => hsync,
+            vsync     => vsync,
+            raw_left  => raw_left,
+            raw_right => raw_right,
+            raw_rotate => raw_rotate,
+            raw_drop  => raw_drop,
+            led       => led,
+            grid_debug => grid_debug,
+            TB_slow_clk   => TB_slow_clk,
+            TB_divide_count => TB_divide_count,
+            TB_score      => TB_score,
+            TB_random_tetromino => TB_random_tetromino,
+            TB_block_type => TB_block_type,
+            TB_temp_drop_y => TB_temp_drop_y
         );
 
     -- Clock generation process
@@ -75,45 +138,132 @@ begin
         end loop;
     end process;
 
-    -- Infinite Test Process
-    test_process: process
-        variable grid_array : Grid;
-        variable grid_string : string(1 to 20 * (12 + 1)); -- Extra space for newline characters
-        variable row_string : string(1 to 12);
-        variable index : integer := 1; -- To track grid_string indexing
-    begin
---        -- Apply reset
+        -- Test Process for Drop Functionality
+--    drop_test_process: process
+--    begin
+--        -- Initialize the game by toggling reset
 --        reset <= '1';
---        wait for clk_period * 2;
+--        wait for clk_period * 5; -- Hold reset for a few clock cycles
 --        reset <= '0';
---        wait for clk_period * 2;
 
-        -- Infinite loop to print the grid on every clock cycle
-        while true loop
-            wait for 2*clk_period*100; -- Wait for one clock cycle
-            grid_array := deserialize_grid(grid_debug);
+--        -- Wait for a few clock cycles for the game to stabilize
+--        wait for clk_period * 50;
 
-            -- Initialize the grid_string
-            index := 1;
-            for row in 0 to 19 loop
-                -- Convert each row to a string
-                for col in 0 to 11 loop
-                    if grid_array(row, col) = '1' then
-                        grid_string(index) := 'X';
-                    else
-                        grid_string(index) := '.';
-                    end if;
-                    index := index + 1;
-                end loop;
-                -- Add a newline character after each row
-                grid_string(index) := LF; -- Line Feed character
-                index := index + 1;
-            end loop;
+--        -- Print the initial grid state
+--        report "Initial grid state:";
+--        print_grid(grid_debug);
 
-            -- Print the entire grid as a single report statement
-            report grid_string;
-        end loop;
+--        -- Simulate the drop input
+--        report "Simulating drop...";
+--        raw_drop <= '1'; -- Assert the drop signal
+--        wait for clk_period * 5; -- Keep the drop signal active for a few cycles
+--        raw_drop <= '0'; -- Deassert the drop signal
 
+--        -- Wait for the drop to complete
+--        wait for clk_period * 50;
+        
+--        -- Print the grid state after the drop
+--        report "Grid state after drop:";
+--        print_grid(grid_debug);
+        
+--        wait for clk_period * 50;
+--        print_grid(grid_debug);
+        
+--        wait for clk_period * 100;
+--        print_grid(grid_debug);
+        
+--        wait for clk_period * 100;
+--        print_grid(grid_debug);
+--        -- End the simulation
+--        report "Drop test completed.";
+--        wait;
+--    end process;
+
+     --Infinite Test Process
+    test_process: process
+    begin
+
+        wait for clk_period*50;
+        print_grid(grid_debug);
+
+        wait for clk_period*50;
+        print_grid(grid_debug);
+        
+        report "Grid state before raw_drop input:";
+        
+        
+         raw_drop <= '1';
+         wait for clk_period * 50; -- Let the block move right
+         print_grid(grid_debug);
+         wait for clk_period * 50; -- Let the block move right
+         print_grid(grid_debug);
+         raw_drop <= '0';
+         wait for clk_period * 50;
+         report "Grid state after raw_drop input:";
+         print_grid(grid_debug);
+         
+         
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        wait for clk_period*100;
+        print_grid(grid_debug);
+        
+        -- -- Simulate raw_left input
+        -- raw_left <= '1';
+        -- wait for clk_period * 5; -- Let the block move left
+        -- raw_left <= '0';
+        -- wait for clk_period * 2 * 100;
+        -- report "Grid state after raw_left input:";
+        -- print_grid(grid_debug);
+
+        -- -- Simulate raw_right input
+        -- raw_right <= '1';
+        -- wait for clk_period * 5; -- Let the block move right
+        -- raw_right <= '0';
+        -- wait for clk_period * 2 * 100;
+        -- report "Grid state after raw_right input:";
+        -- print_grid(grid_debug);
+
+        -- -- Simulate raw_rotate input
+        -- raw_rotate <= '1';
+        -- wait for clk_period * 5; -- Let the block rotate
+        -- raw_rotate <= '0';
+        -- wait for clk_period * 2 * 100;
+        -- report "Grid state after raw_rotate input:";
+        -- print_grid(grid_debug);
+
+        -- -- Simulate raw_right and raw_rotate together
+        -- raw_right <= '1';
+        -- raw_rotate <= '1';
+        -- wait for clk_period * 2 * 100;
+        -- raw_right <= '0';
+        -- raw_rotate <= '0';
+        -- wait for clk_period * 2 * 100;
+        -- report "Grid state after raw_right and raw_rotate inputs:";
+        -- print_grid(grid_debug);
+
+        -- End the simulation
+        report "Testbench completed.";
+        wait;
     end process;
 
 end Behavioral;
