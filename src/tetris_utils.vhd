@@ -2,98 +2,21 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
--- Package Declaration
 package tetris_utils is
 
     -- Constants
     constant ROWS : integer := 23;                -- Number of rows in the grid
-    constant COLS : integer := 18;                -- Number of columns in the grid
-
-    -- Types
-    type Grid is array (0 to ROWS-1, 0 to COLS-1) of std_logic;
-
-    -- Function Declarations
-    function collision_detected(
-        x : integer; 
-        y : integer; 
-        piece : std_logic_vector(0 to 15); 
-        grid : Grid
-    ) return boolean;
+    constant COLS : integer := 16;                -- Number of columns in the grid
 
     function fetch_tetromino(
         block_type : integer range 0 to 6; rotation : integer range 0 to 3
     ) return std_logic_vector;
 
-    function rotate_piece(
-        block_type : integer range 0 to 6; rotation : integer range 0 to 3
-    ) return std_logic_vector;
-
-    procedure lock_piece(
-        signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
-    );
-
-    procedure delete_piece(
-        signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector
-    );
-
---    procedure delete_piece_variable(
---        variable g : inout Grid; x : integer; y : integer; piece : std_logic_vector
---    );
-
-    -- function serialize_grid(signal g : Grid) return std_logic_vector;
-
-    -- -- Update Piece Location Procedure Declaration
-	-- procedure update_piece_loc(
-	-- 	signal g : inout Grid;                  -- Game grid to be updated
-    --     current_x : integer;                    -- Current X position of the block
-    --     current_y : integer;                    -- Current Y position of the block
-    --     new_x : integer;                        -- New X position of the block
-    --     new_y : integer;                        -- New Y position of the block
-    --     piece : std_logic_vector(0 to 15)              -- Tetromino data (4x4 matrix as a flat vector)
-	-- );
-	
 end tetris_utils;
 
--- Package Body
 package body tetris_utils is
 
-    -- Collision Detection Function
-    function collision_detected(
-		x : integer;                    -- Top-left x-coordinate of the piece
-		y : integer;                    -- Top-left y-coordinate of the piece
-		piece : std_logic_vector(0 to 15); -- Flattened 4x4 matrix representing the piece
-		grid : Grid                     -- Current game grid
-    ) return boolean is
-        variable px, py : integer;      -- Indices within the piece (local to the 4x4 grid)
-        variable gx, gy : integer;      -- Corresponding grid coordinates in the playfield
-    begin
-        -- Iterate through the 4x4 matrix of the tetromino piece
-        for py in 0 to 3 loop
-            for px in 0 to 3 loop
-                -- Check if the current block of the piece is occupied
-                if piece((py * 4) + px) = '1' then
-                    -- Compute corresponding grid coordinates
-                    gx := x + px;       -- Grid x-coordinate
-                    gy := y + py;       -- Grid y-coordinate
-                    
-                    -- Check for boundary collisions (left, right, bottom)
-                    if gx < 3 or gx >= COLS-3 or gy < 0 or gy >= ROWS then
-                        return true;    -- Collision with boundaries detected
-                    end if;
-    
-                    -- Check for collisions with existing blocks in the grid
-                    if grid(gy, gx) = '1' then
-                        return true;    -- Collision with existing blocks detected
-                    end if;
-                end if;
-            end loop;
-        end loop;
-    
-        -- If no collisions were detected, return false
-        return false;
-    end function;
-
-    -- Fetch Tetromino Function
+     -- Fetch Tetromino Function
     function fetch_tetromino(
         block_type : integer range 0 to 6; rotation : integer range 0 to 3
     ) return std_logic_vector is
@@ -119,78 +42,6 @@ package body tetris_utils is
         return Tetromino_ROM(block_type, rotation);
     end function;
 
-    -- Rotate Piece Function
-    function rotate_piece(
-        block_type : integer range 0 to 6; rotation : integer range 0 to 3
-    ) return std_logic_vector is
-    begin
-        -- Fetch the rotated tetromino shape from the ROM
-        return fetch_tetromino(block_type, rotation);
-    end function;
+end package body;
 
-    -- Lock Piece Procedure
-    procedure lock_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector) is
-    begin
-        for py in 0 to 3 loop
-            for px in 0 to 3 loop
-                if piece((py * 4) + px) = '1' then
-                    g(y + py, x + px) <= '1';
-                end if;
-            end loop;
-        end loop;
-    end procedure;
 
-    -- Lock Piece Procedure
-    procedure delete_piece(signal g : inout Grid; x : integer; y : integer; piece : std_logic_vector) is
-    begin
-        for py in 0 to 3 loop
-            for px in 0 to 3 loop
-                if piece((py * 4) + px) = '1' then
-                    g(y + py, x + px) <= '0';
-                end if;
-            end loop;
-        end loop;
-    end procedure;
-
-    -- -- Serialize Grid Function
-    -- function serialize_grid(signal g : Grid) return std_logic_vector is
-    --     variable serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
-    -- begin
-    --     for row in 0 to ROWS-1 loop
-    --         for col in 0 to COLS-1 loop
-    --             serialized((row * COLS) + col) := g(row, col);
-    --         end loop;
-    --     end loop;
-    --     return serialized;
-    -- end function;
-
-    -- -- Update Piece Location Procedure
-    -- procedure update_piece_loc(
-    --     signal g : inout Grid;                  -- Game grid to be updated
-    --     current_x : integer;                    -- Current X position of the block
-    --     current_y : integer;                    -- Current Y position of the block
-    --     new_x : integer;                        -- New X position of the block
-    --     new_y : integer;                        -- New Y position of the block
-    --     piece : std_logic_vector(0 to 15)               -- Tetromino data (4x4 matrix as a flat vector)
-    -- ) is
-    -- begin
-    --     -- Clear the current location of the block
-    --     for py in 0 to 3 loop
-    --         for px in 0 to 3 loop
-    --             if piece((py * 4) + px) = '1' then
-    --                 g(current_y + py, current_x + px) <= '0';
-    --             end if;
-    --         end loop;
-    --     end loop;
-
-    --     -- Place the block in the new location
-    --     for py in 0 to 3 loop
-    --         for px in 0 to 3 loop
-    --             if piece((py * 4) + px) = '1' then
-    --                 g(new_y + py, new_x + px) <= '1';
-    --             end if;
-    --         end loop;
-    --     end loop;
-    -- end procedure;
-
-end tetris_utils;

@@ -4,7 +4,7 @@ use IEEE.numeric_std.all;
 
 use work.tetris_utils.all;
 
-entity grid_generator is
+entity shadow_generator is
     port (
         clk       : in std_logic;                  -- System clock
         -- grid      : in std_logic_vector(ROWS * COLS - 1 downto 0); -- Input grid (20 rows * 12 columns)
@@ -15,9 +15,9 @@ entity grid_generator is
         obj_grn   : out std_logic_vector(1 downto 0); -- Green color signal
         obj_blu   : out std_logic_vector(1 downto 0)  -- Blue color signal
     );
-end grid_generator;
+end shadow_generator;
 
-architecture Behavioral of grid_generator is
+architecture Behavioral of shadow_generator is
     -- Grid cell dimensions
     constant cell_width : integer := 20;  -- Cell width in pixels
     constant cell_height : integer := 20; -- Cell height in pixels
@@ -25,7 +25,7 @@ architecture Behavioral of grid_generator is
     -- constant cell_height : integer := 10; -- Cell height in pixels
 
     -- Start coordinates
-    constant start_x : integer := 30;     -- Starting X coordinate
+    constant start_x : integer := 330;     -- Starting X coordinate
     constant start_y : integer := 30;     -- Starting Y coordinate
 
     constant frame_thickness : integer := 4; -- Thickness of the outer grey frame

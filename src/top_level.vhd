@@ -1,531 +1,562 @@
 library IEEE;
     use IEEE.STD_LOGIC_1164.all;
     use IEEE.NUMERIC_STD.all;
-
-    -- Include the tetris_utils package
     use work.tetris_utils.all;
-    use work.clock_divider;
-    use work.random_num;
-    use work.debounce;
-    use work.grid_bram;
-    
 
 entity top_level is
     port (
-        clk   : in  std_logic;                    -- System clock
-        reset : in  std_logic := '0';             -- Reset signal
-        red   : out std_logic_vector(1 downto 0); -- VGA red signal
-        green : out std_logic_vector(1 downto 0); -- VGA green signal
-        blue  : out std_logic_vector(1 downto 0); -- VGA blue signal
-        hsync : out std_logic;                    -- Horizontal sync
-        vsync : out std_logic;                     -- Vertical sync
-        raw_left   : in  std_logic;                  -- Raw input for move left
-        raw_right  : in  std_logic;                  -- Raw input for move right
-        raw_rotate : in  std_logic;                   -- Raw input for rotate
-        raw_drop   : in std_logic;                    -- Raw input for drop function
-        restart_game : in std_logic;                  -- Onboard button (btn[0]) for restart
-        led         : out STD_LOGIC_VECTOR(1 downto 0) -- LEDs for output
---        grid_debug : out std_logic_vector((20 * 12) - 1 downto 0); -- Debug grid output
---        TB_slow_clk      : out std_logic;                    -- Observable slow clock
---        TB_divide_count  : out integer;                      -- Observable divide count
---        TB_score         : out integer;                       -- Observable score
---        TB_random_tetromino : out integer;
---        TB_block_type : out integer;
---        TB_temp_drop_y  : out integer
+        clk : in std_logic;
+        rpixel_grid : in  STD_LOGIC;
+        rpixel_shadow : in  STD_LOGIC;
+        raddr_grid : out STD_LOGIC_VECTOR (8 downto 0);
+        raddr_shadow : out STD_LOGIC_VECTOR (8 downto 0);
+        wen_grid : out STD_LOGIC;
+        wen_shadow : out STD_LOGIC;
+        wpixel_grid : out STD_LOGIC;
+        wpixel_shadow : out STD_LOGIC;
+        waddr_grid : out STD_LOGIC_VECTOR (8 downto 0);
+        waddr_shadow : out STD_LOGIC_VECTOR (8 downto 0);
+        drop : in std_logic;
+        left : in std_logic;
+        right : in std_logic;
+        rotate : in std_logic;
+        restart_game : in std_logic;
+        -- serialized_grid : out std_logic_vector((ROWS * COLS) - 1 downto 0);
+        serialized_grid : out std_logic_vector((ROWS * COLS) - 1 downto 0);
+        serialized_shadow : out std_logic_vector((ROWS * COLS) - 1 downto 0);
+        -- led : out std_logic_vector(1 downto 0) := "00";
+        lock : out std_logic;
+        done : in std_logic;
+        game_over_sig : out std_logic := '0';
+        row_cleared : in std_logic
     );
-end entity;
+end top_level;
 
 architecture Behavioral of top_level is
+    -- State definitions
+    type state_type is (LEFTS, RIGHTS, ROTATES, DROPS, GAME_OVER, IDLE, SPAWN, FALL); -- Mealy Machine
+    signal state : state_type := GAME_OVER;
 
-    -- VGA Controller Signals
-    signal grid_serialized : std_logic_vector((ROWS * COLS) - 1 downto 0);
-    signal tx_signal       : std_logic;
+    signal collision : std_logic := '0';
 
-    -- Game Grid
---     signal g :  := (others => (others => '0')); -- 20x12 game grid
-    signal g : BRAM_Memory := (others => (others => '0')); 
-    
-    -- BRAM Interface Signals for Grid
-    signal bram_addr   : integer range 0 to ROWS - 1;
-    signal bram_data_in  : std_logic_vector(COLS - 1 downto 0);
-    signal bram_data_out : std_logic_vector(COLS - 1 downto 0);
-    signal bram_we     : std_logic := '0';
-        
-    -- Tetromino Signals
-    signal tetromino   : std_logic_vector(0 to 15);               -- Tetromino data
-    signal piece_pos_x : integer range 0 to COLS - 1 := COLS / 2 - 2; -- Start X position
-    signal piece_pos_y : integer range 0 to ROWS - 1 := 0;            -- Start Y position
+    signal piece_pos_x : integer range 0 to COLS - 1 := COLS / 2 - 1;
+    signal piece_pos_y : integer range 0 to ROWS - 1 := 0;
+    signal score : integer := 0;
+    signal block_type : integer range 0 to 6 := 0;
+    signal rotation : integer range 0 to 3 := 0;
+    signal random_tetromino : integer range 0 to 6 := 0;
 
-    signal shadow_grid : BRAM_Memory := (others => (others => '0'));
-    
-    signal rotation : integer range 0 to 3 := 0;                -- Default rotation index (0 degrees)
-    signal block_type : integer range 0 to 6 := 6;              -- Current tetromino type
-    --signal active_piece : std_logic_vector(0 to 15);        -- Current active piece (shape & rotation)
-    
-    -- Clock Divider for Slow Movement
-    signal slow_clk : std_logic;
-    signal current_divide_count : integer := 6_000_000; -- Default to 1 Hz
-    signal score : integer := 0; -- Score counter
-    
-    signal game_over : std_logic := '0'; -- Game over signal, '0': Idle, '1': Playing
-    signal random_tetromino : integer;
-    
-    -- Internal signals for debounced outputs
-     signal debounced_left   : std_logic;
-     signal debounced_right  : std_logic;
-     signal debounced_rotate : std_logic;
-     signal debounced_drop   : std_logic;
+    signal count : integer := 0;
+    signal serialize_count : integer range 0 to ROWS * COLS := 0;
+    signal tetromino : std_logic_vector(0 to 15) := (others => '0');
+    signal update_shadow : std_logic := '0';
+    signal check_clear_rows : std_logic := '0';
+    signal fall_counter : integer range 0 to 11_999_999 := 0;
+    signal variable_clk : integer := 11_999_999;
+    signal start_visualizing : std_logic := '0';
+    signal restart_counter : integer := 0;
 
-    signal drop_y: integer range 0 to ROWS - 1 := 0;
 begin
---    -- Map internal signals to output ports
---    TB_slow_clk <= slow_clk; -- Expose slow clock
---    TB_divide_count <= current_divide_count; -- Expose divide count
---    TB_score <= score; -- Expose score
---    TB_random_tetromino <= random_tetromino;
---    TB_block_type <= block_type;
-    
-    -- Clock Divider for Slow Movement
-    clk_div_inst: entity work.clock_divider
-        port map (
-            clk_in  => clk,
-            reset=> '0',
-            divide_count => current_divide_count,
-            clk_out => slow_clk
-        );
-     
-     -- Clock Divider for Slow Movement
+
     rand_num_inst: entity work.random_num
-        port map (
-            clk => slow_clk,
-            reset => '0',
-            random_number => random_tetromino
-        );
-        
-        
-     -- Process to update divide_count based on score
-    process (score)
-    begin
-        -- Scale divide_count based on score
-        current_divide_count <= 6_000_000 - score*1_000_000; -- Example: Decrease divide_count as score increases
-        if current_divide_count < 1000 then
-            current_divide_count <= 1000; -- Minimum value
-        end if;
-    end process;
+    port map (
+        clk => clk,
+        reset => '0',
+        random_number => random_tetromino
+    );
 
-    debounce_inst: entity work.debounce
-        port map (
-            clk   => clk,                -- System clock
-            btn_r => raw_left,           -- Raw input for move left
-            btn_b => raw_right,          -- Raw input for move right
-            btn_y => raw_rotate,         -- Raw input for rotate
-            btn_g => raw_drop,              -- Reset signal
-            out_r => debounced_left,     -- Debounced move_left signal
-            out_b => debounced_right,    -- Debounced move_right signal
-            out_y => debounced_rotate,   -- Debounced rotate signal
-            out_g => debounced_drop                -- Open if reset debounce isn't needed
-        );
-        
-    -- BRAM Instance for Game Grid
-    grid_bram_inst: entity work.grid_bram
-        generic map (
-            ROWS => ROWS, -- Match the ROWS constant from your top_level
-            COLS => COLS  -- Match the COLS constant from your top_level
-        )
-        port map (
-            clk       => clk,           -- Connect to the system clock
-            addr      => bram_addr,     -- Address input for BRAM
-            data_in   => bram_data_in,  -- Data input for write operation
-            data_out  => bram_data_out, -- Data output for read operation
-            we        => bram_we        -- Write enable signal
-        );
-    
-
-    -- Main Falling Logic
-    falling_logic: process (slow_clk, block_type, piece_pos_x, piece_pos_y, rotation, g, shadow_grid)
-        variable temp_piece_pos_x : integer range 0 to COLS - 1 := 0;
-        variable temp_piece_pos_y : integer range 0 to ROWS - 1 := 0;
-        variable temp_drop_y : integer range 0 to ROWS - 1;
-        -- For rotation
-        variable temp_rotation : integer range 0 to 3;
-        variable rotated_piece : std_logic_vector(0 to 15);
-
-        variable input_state : std_logic_vector(3 downto 0);
-
-        variable flag : std_logic := '0';
-        variable new_flag : std_logic := '0';
-        variable new_block_flag : std_logic := '1';
-    begin
-        
-        if rising_edge(slow_clk) then
-            if game_over = '0' then
-                if restart_game = '1' then
-                    -- Reset game components
-                    g <= (others => (others => '0')); -- Clear the grid
-                    shadow_grid <= (others => (others => '0')); -- Clear shadow grid
-                    piece_pos_x <= COLS / 2 - 2; -- Reset piece position
-                    piece_pos_y <= 0;
-                    rotation <= 0;
-                    block_type <= random_tetromino; -- Generate new piece
-                    score <= 0; -- Reset score
-                    game_over <= '1'; -- Start playing
-                 else 
-                    -- IDLE state, do nothing
-                 end if;
-            else -- if game_over = '1', start playing
-            
-                if flag = '1' then
-                    flag := '0';
-                    shadow_grid <= g;
-                end if;
-            
-                tetromino <= fetch_tetromino(block_type, rotation);
-    
-                -- Combine input signals into a single state
-                -- input_state := left_signal & right_signal & rotate_signal;
-                 input_state := debounced_left & debounced_right & debounced_rotate & debounced_drop;
-    --            input_state := raw_left & raw_right & raw_rotate & raw_drop;
-    
-                if new_block_flag = '1' then
-                    -- do nothing
-                    new_block_flag := '0';
-                else
-                    if new_flag = '0' then
-                         if not collision_detected(piece_pos_x, piece_pos_y, tetromino, shadow_grid) then
-                            -- Lock the tetromino into the main grid at the spawn position
-                            lock_piece(g, piece_pos_x, piece_pos_y, tetromino);
-                            new_flag := '1';
-                         else
-                            -- game over
-                            new_flag := '0';
-                            led <= "11";
-                            game_over <= '0'; -- enter game_over idle state
-                         end if;
-                    else
-                        -- Case statement for the combined input state
-                        case input_state is
-                        -- gravity drop logic
-                        when "0001" =>                     
-    --                        led <= "11";
-                            bram_we <= '1';
-                            -- Initialize temporary variables with current signal values
-                            temp_piece_pos_x := piece_pos_x;
-                            temp_piece_pos_y := piece_pos_y;
-                          
-                    
-                            -- if temp_piece_pos_y /= 0 then
-                                -- Clear the current tetromino from the main grid
-                                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                            -- end if;
-                            
-                            temp_drop_y := calculate_drop_y(temp_piece_pos_x, temp_piece_pos_y, block_type, rotation, shadow_grid);
-    
-                            -- Check for collision below
-                            if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                                if temp_piece_pos_y /= 0 then
-    
-                                    -- If collision detected, lock the tetromino into the grid
-                                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                                end if;
-    
-                                flag := '1';
-                                new_flag := '0';
-                                new_block_flag := '1';
-                    
-                                -- Reset the piece position to spawn a new tetromino
-                                clear_full_rows(g, score);
-                                block_type <= random_tetromino;
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                piece_pos_y <= 0;
-                                rotation <= 0; -- Reset rotation
-                                tetromino <= fetch_tetromino(block_type, 0);
-                            else
-                                -- Move the tetromino down
-                                temp_piece_pos_y := temp_drop_y;
-                                
-                                -- Lock the tetromino into the main grid at the new position
-                                lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                    
-                                -- Assign updated temporary positions back to signals
-                                piece_pos_x <= temp_piece_pos_x;
-                                piece_pos_y <= temp_piece_pos_y;
-                            end if;
-                            bram_we <= '0';
-    
-                    
-                        -- Move left logic
-                        when "1000" =>
-                            bram_we <= '1';
-                            led <= "10";
-                            -- Initialize temporary variables with current signal values
-                            temp_piece_pos_x := piece_pos_x;
-                            temp_piece_pos_y := piece_pos_y;
-    
-                            -- if temp_piece_pos_y /= 0 then
-                                -- Clear the current tetromino from the main grid
-                                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                            -- end if;
-                    
-                            -- Test move-left animation
-                            if not collision_detected(temp_piece_pos_x - 1, temp_piece_pos_y, tetromino, shadow_grid) then
-                                -- Update temporary X position to move left
-                                temp_piece_pos_x := temp_piece_pos_x - 1;
-                            end if;
-                    
-                            -- Check for collision below
-                            if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                                if temp_piece_pos_y /= 0 then
-    
-                                    -- If collision detected, lock the tetromino into the grid
-                                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                                end if;
-    
-                                flag := '1';
-                                new_flag := '0';
-                                new_block_flag := '1';
-                    
-                                -- Reset the piece position to spawn a new tetromino
-                                clear_full_rows(g, score);
-                                block_type <= random_tetromino;
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                piece_pos_y <= 0;
-                                rotation <= 0; -- Reset rotation
-                                tetromino <= fetch_tetromino(block_type, 0);
-                            else
-                                -- Move the tetromino down
-                                temp_piece_pos_y := temp_piece_pos_y + 1;
-                    
-                                -- Lock the tetromino into the main grid at the new position
-                                lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                    
-                                -- Assign updated temporary positions back to signals
-                                piece_pos_x <= temp_piece_pos_x;
-                                piece_pos_y <= temp_piece_pos_y;
-                            end if;
-                            bram_we <= '0';
-                            
-                        -- Move right logic
-                        when "0100" =>
-                            bram_we <= '1';
-                            -- Initialize temporary variables with current signal values
-                            temp_piece_pos_x := piece_pos_x;
-                            temp_piece_pos_y := piece_pos_y;
-                    
-                            -- if temp_piece_pos_y /= 0 then
-                                -- Clear the current tetromino from the main grid
-                                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                            -- end if;
-                    
-                            -- Test move-left animation
-                            if not collision_detected(temp_piece_pos_x + 1, temp_piece_pos_y, tetromino, shadow_grid) then
-                                -- Update temporary X position to move left
-                                temp_piece_pos_x := temp_piece_pos_x + 1;
-                            end if;
-                    
-                            -- Check for collision below
-                            if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                                if temp_piece_pos_y /= 0 then
-    
-                                    -- If collision detected, lock the tetromino into the grid
-                                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                                end if;
-    
-                                flag := '1';
-                                new_flag := '0';
-                                new_block_flag := '1';
-                    
-                                -- Reset the piece position to spawn a new tetromino
-                                clear_full_rows(g, score);
-                                block_type <= random_tetromino;
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                piece_pos_y <= 0;
-                                rotation <= 0; -- Reset rotation
-                                tetromino <= fetch_tetromino(block_type, 0);
-                            else
-                                -- Move the tetromino down
-                                temp_piece_pos_y := temp_piece_pos_y + 1;
-                    
-                                -- Lock the tetromino into the main grid at the new position
-                                lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                    
-                                -- Assign updated temporary positions back to signals
-                                piece_pos_x <= temp_piece_pos_x;
-                                piece_pos_y <= temp_piece_pos_y;
-                            end if;
-                            bram_we <= '0';
-    
-                            
-                        -- Rotate logic
-                        when "0010" =>
-                            bram_we <= '1';
-                            -- Initialize temporary variables with current signal values
-                            temp_piece_pos_x := piece_pos_x;
-                            temp_piece_pos_y := piece_pos_y;
-                            temp_rotation := rotation;
-    
-                            -- if temp_piece_pos_y /= 0 then
-                                -- Clear the current tetromino from the main grid
-                                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                            -- end if;
-    
-                            -- Handle Rotation
-                            temp_rotation := (rotation + 1) mod 4; -- Increment rotation
-                            rotated_piece := rotate_piece(block_type, temp_rotation);
-    
-                            if not collision_detected(temp_piece_pos_x, temp_piece_pos_y, rotated_piece, shadow_grid) then
-                                -- Apply rotation if no collision
-                                tetromino <= rotated_piece;
-                                rotation <= temp_rotation;
-    
-                                -- Check for collision below
-                                if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, rotated_piece, shadow_grid) then
-                                    if temp_piece_pos_y /= 0 then
-    
-                                        -- If collision detected, lock the tetromino into the grid
-                                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
-    
-                                    end if;
-    
-                                    flag := '1';
-                                    new_flag := '0';
-                                    new_block_flag := '1';
-    
-                                    -- Reset the piece position to spawn a new tetromino
-                                    clear_full_rows(g, score);
-                                    block_type <= random_tetromino;
-                                    piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                    piece_pos_y <= 0;
-                                    rotation <= 0; -- Reset rotation
-                                    tetromino <= fetch_tetromino(block_type, 0);
-                                else
-                                    -- Move the tetromino down
-                                    temp_piece_pos_y := temp_piece_pos_y + 1;
-    
-                                    -- Lock the tetromino into the grid at the new position
-                                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, rotated_piece);
-    
-                                    -- Assign updated temporary positions back to signals
-                                    piece_pos_x <= temp_piece_pos_x;
-                                    piece_pos_y <= temp_piece_pos_y;
-                                end if;
-    
-                            else
-                                -- input_signal <= '0';
-                                -- Check for collision below
-                                if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                                    if temp_piece_pos_y /= 0 then
-    
-                                        -- If collision detected, lock the tetromino into the grid
-                                        lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                                    end if;
-    
-                                    flag := '1';
-                                    new_flag := '0';
-                                    new_block_flag := '1';
-    
-                                    -- Reset the piece position to spawn a new tetromino
-                                    clear_full_rows(g, score);
-                                    block_type <= random_tetromino;
-                                    piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                    piece_pos_y <= 0;
-                                    rotation <= 0; -- Reset rotation
-                                    tetromino <= fetch_tetromino(block_type, 0);
-                                else
-                                    -- Move the tetromino down
-                                    temp_piece_pos_y := temp_piece_pos_y + 1;
-    
-                                    -- Lock the tetromino into the grid at the new position
-                                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                                    -- Assign updated temporary positions back to signals
-                                    piece_pos_x <= temp_piece_pos_x;
-                                    piece_pos_y <= temp_piece_pos_y;
-                                end if;
-                            end if;
-                            bram_we <= '0';
-                            
-                        
-                        when others =>
-                            bram_we <= '1';
-    --                        led <= "00";
-                            -- Initialize temporary variables with current signal values
-                            temp_piece_pos_x := piece_pos_x;
-                            temp_piece_pos_y := piece_pos_y;
-                    
-                            -- if temp_piece_pos_y /= 0 then
-                                -- Clear the current tetromino from the main grid
-                                delete_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                            -- end if;
-    
-                            -- Check for collision below
-                            if collision_detected(temp_piece_pos_x, temp_piece_pos_y + 1, tetromino, shadow_grid) then
-                                if temp_piece_pos_y /= 0 then
-    
-                                    -- If collision detected, lock the tetromino into the grid
-                                    lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-    
-                                end if;
-    
-                                flag := '1';
-                                new_flag := '0';
-                                new_block_flag := '1';
-                    
-                                -- Reset the piece position to spawn a new tetromino
-                                clear_full_rows(g, score);
-                                block_type <= random_tetromino;
-                                piece_pos_x <= COLS / 2 - 2; -- Centered spawn
-                                piece_pos_y <= 0;
-                                rotation <= 0; -- Reset rotation
-                                tetromino <= fetch_tetromino(block_type, 0);
-                            else
-                                -- Move the tetromino down
-                                temp_piece_pos_y := temp_piece_pos_y + 1;
-                                
-                                -- Lock the tetromino into the main grid at the new position
-                                lock_piece(g, temp_piece_pos_x, temp_piece_pos_y, tetromino);
-                    
-                                -- Assign updated temporary positions back to signals
-                                piece_pos_x <= temp_piece_pos_x;
-                                piece_pos_y <= temp_piece_pos_y;
-                            end if;
-                            bram_we <= '0';
-                        end case;
-                    end if;
-                end if;
-            end if;
-        end if;
-
-    end process;
-
-
-    -- Serialize the grid to pass to VGA controller
-    serialize_grid_process: process (clk)
+    -- FSM Output Logic
+    fsm_logic: process (clk)
+        variable temp_rotation : integer range 0 to 3 := 0;
     begin
         if rising_edge(clk) then
-            if game_over = '1' then
-                grid_serialized <= serialize_bram(g); -- Serialize grid when playing
-            else
-                grid_serialized <= (others => '0'); -- Blank grid during idle
-            end if;
+            fall_counter <= fall_counter + 1;
+            case state is
+                when GAME_OVER =>
+                    variable_clk <= 11_999_999;
+                    score <= 0;
+                    game_over_sig <= '1';
+                    -- reset read / write
+                    raddr_shadow <= (others => '0');
+                    wen_grid <= '0';
+                    wen_shadow <= '0';
+                    wpixel_grid <= '0';
+                    wpixel_shadow <= '0';
+                    waddr_grid <= (others => '0');
+                    waddr_shadow <= (others => '0');
+                    collision <= '0';
+                    if restart_game = '1' then
+                        if restart_counter < ROWS * COLS then
+                            restart_counter <= restart_counter + 1;
+                            waddr_shadow <= std_logic_vector(to_unsigned(restart_counter, raddr_shadow'length));
+                            waddr_grid <= std_logic_vector(to_unsigned(restart_counter, raddr_grid'length));
+                            wen_grid <= '1';
+                            wen_shadow <= '1';
+                            wpixel_grid <= '0';
+                            wpixel_shadow <= '0';
+                        else
+                            game_over_sig <= '0';
+                            state <= SPAWN;
+                            count <= 0;
+                            restart_counter <= 0;
+                            wen_grid <= '0';
+                            wen_shadow <= '0';
+                            wpixel_grid <= '0';
+                            wpixel_shadow <= '0';
+                            waddr_grid <= (others => '0');
+                            waddr_shadow <= (others => '0');
+                        end if;
+                    end if;
+
+                when SPAWN =>
+                    -- led <= "11";
+                    piece_pos_x <= COLS / 2 - 1;
+                    piece_pos_y <= 0;
+                    rotation <= 0;
+                    collision <= '0';
+
+                    if count = 0 then
+                        block_type <= random_tetromino;
+                        -- block_type <= 6;
+                        count <= 1;
+                    elsif count > 0 and count < 18 then
+                        if count < 17 then
+                            tetromino <= fetch_tetromino(block_type, rotation);
+                            -- check 4*4 spawn area one by one for collision
+                            if tetromino(count-1) = '1' then
+                                raddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count-1) / 4) * COLS + ((count-1) mod 4), raddr_shadow'length));
+                            end if;
+                        end if;
+                        if count > 1 then
+                            if tetromino(count-2) = '1' then
+                                if rpixel_shadow = '1' then
+                                    collision <= '1';
+                                    state <= GAME_OVER;
+                                end if;
+                            end if;
+                        end if;
+                        count <= count + 1;
+                    elsif (collision = '0') and (count < 34) then
+                        -- write new tetromino to 4*4 area one pixel at a time
+                        if tetromino(count - 18) = '1' then
+                            waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count-18) / 4) * COLS + ((count-2) mod 4), waddr_grid'length));
+                            wen_grid <= '1';
+                            wpixel_grid <= '1';
+                        end if;
+                        count <= count + 1;
+
+                    else
+                        wen_grid <= '0';
+                        count <= 0;
+                        state <= IDLE;
+                    end if;
+
+                when IDLE =>
+                    -- led <= "00";
+                    collision <= '0';
+                    if drop = '1' then
+                        count <= 0;
+                        state <= DROPS;
+                    elsif left = '1' then
+                        count <= 0;
+                        state <= LEFTS;
+                    elsif right = '1' then
+                        count <= 0;
+                        state <= RIGHTS;
+                    elsif rotate = '1' then
+                        count <= 0;
+                        state <= ROTATES;
+                    else
+                        count <= 0;
+                        state <= FALL;
+                        -- end if;
+                    end if;
+
+                when LEFTS =>
+                    if count < 16 then
+                        -- delete tetromino in 4*4 area one pixel at a time
+                        if tetromino(count) = '1' then
+                            waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + count / 4) * COLS + (count mod 4), waddr_grid'length));
+                            wen_grid <= '1';
+                            wpixel_grid <= '0';
+                        end if;
+                        count <= count + 1;
+
+                    elsif count < 33 then
+                        count <= count + 1;
+                        if count < 32 then
+                            wen_grid <= '0';
+                            tetromino <= fetch_tetromino(block_type, rotation);
+                            -- check 4*4 area one by one for collision
+                            if tetromino(count - 16) = '1' then
+                                if ((piece_pos_x - 1 + ((count) mod 4) < 3) or (piece_pos_x - 1 + ((count) mod 4) > COLS - 4)) then
+                                    collision <= '1';
+                                    count <= 0;
+                                    state <= FALL;
+                                else
+                                    raddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count-16) / 4) * COLS + (count mod 4) - 1, raddr_shadow'length));
+                                end if;
+                            end if;
+                        end if;
+                        if count > 16 then
+                            if tetromino(count - 17) = '1' then
+                                if rpixel_shadow = '1' or ((piece_pos_x - 1 + ((count-1) mod 4) < 3) or (piece_pos_x - 1 + ((count-1) mod 4) > COLS - 4)) then
+                                    collision <= '1';
+                                    count <= 0;
+                                    state <= FALL;
+                                end if;
+                            end if;
+                        end if;
+                    else
+                        if collision = '0' then
+                            piece_pos_x <= piece_pos_x - 1;
+                        end if;
+                        count <= 0;
+                        state <= FALL;
+                    end if;
+
+                when RIGHTS =>
+                    if count < 16 then
+                        -- delete tetromino in 4*4 area one pixel at a time
+                        if tetromino(count) = '1' then
+                            waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + count / 4) * COLS + (count mod 4), waddr_grid'length));
+                            wen_grid <= '1';
+                            wpixel_grid <= '0';
+                        end if;
+                        count <= count + 1;
+
+                    elsif count < 33 then
+                        count <= count + 1;
+                        if count < 32 then
+                            wen_grid <= '0';
+                            tetromino <= fetch_tetromino(block_type, rotation);
+                            -- check 4*4 area one by one for collision
+                            if tetromino(count - 16) = '1' then
+                                if ((piece_pos_x + 1 + ((count) mod 4) < 3) or (piece_pos_x + 1 + ((count) mod 4) > COLS - 4)) then
+                                    collision <= '1';
+                                    count <= 0;
+                                    state <= FALL;
+                                else
+                                    raddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count-16) / 4) * COLS + (count mod 4) + 1, raddr_shadow'length));
+                                end if;
+                            end if;
+                        end if;
+                        if count > 16 then
+                            if tetromino(count - 17) = '1' then
+                                if rpixel_shadow = '1' or ((piece_pos_x + 1 + ((count-1) mod 4) < 3) or (piece_pos_x + 1 + ((count-1) mod 4) > COLS - 4)) then
+                                    collision <= '1';
+                                    count <= 0;
+                                    state <= FALL;
+                                end if;
+                            end if;
+                        end if;
+                    else
+                        if collision = '0' then
+                            piece_pos_x <= piece_pos_x + 1;
+                        end if;
+                        count <= 0;
+                        state <= FALL;
+                    end if;
+
+                when ROTATES =>
+                    if count < 16 then
+                        -- delete tetromino in 4*4 area one pixel at a time
+                        if tetromino(count) = '1' then
+                            waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + count / 4) * COLS + (count mod 4), waddr_grid'length));
+                            wen_grid <= '1';
+                            wpixel_grid <= '0';
+                        end if;
+                        count <= count + 1;
+
+                    elsif count = 16 then
+                        wen_grid <= '0';
+                        temp_rotation := (rotation + 1) mod 4;
+                        tetromino <= fetch_tetromino(block_type, temp_rotation);
+                        count <= count + 1;
+
+                    elsif count < 34 then
+                        count <= count + 1;
+                        if count < 33 then
+                            -- check 4*4 area one by one for collision
+                            if tetromino(count - 17) = '1' then
+                                raddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count-17) / 4) * COLS + ((count-1) mod 4), raddr_shadow'length));
+                            end if;
+                        end if;
+                        if count > 17 then
+                            if tetromino(count - 18) = '1' then
+                                if rpixel_shadow = '1' or ((piece_pos_x + ((count-2) mod 4) < 3) or (piece_pos_x + ((count-2) mod 4) > COLS - 4)) or (piece_pos_y + (count-18) / 4 > ROWS - 1) then
+                                    collision <= '1';
+                                    count <= 0;
+                                    state <= FALL;
+                                end if;
+                            end if;
+                        end if;
+                    else
+                        if collision = '0' then
+                            rotation <= temp_rotation;
+                        end if;
+                        count <= 0;
+                        state <= FALL;
+                    end if;
+
+                when FALL =>
+                    -- led <= "10";
+                    if count < 17 then
+                        if count < 16 then
+                            tetromino <= fetch_tetromino(block_type, rotation);
+                            -- check 4*4 area one by one for collision
+                            if tetromino(count) = '1' then
+                                raddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + count / 4 + 1) * COLS + (count mod 4), raddr_shadow'length)); -- bottom
+                            end if;
+                        end if;
+                        if count > 0 then
+                            if tetromino(count - 1) = '1' then
+                                if rpixel_shadow = '1' or (piece_pos_y + (count-1) / 4 + 1 > ROWS - 1) then
+                                    collision <= '1';
+                                    update_shadow <= '1';
+                                    check_clear_rows <= '1';
+                                end if;
+                            end if;
+                        end if;
+                            count <= count + 1;
+                            -- wpixel_grid <= '0';
+
+                    elsif count > 16 and count < 33 then
+                        -- delete tetromino in 4*4 area one pixel at a time
+                        if tetromino(count - 17) = '1' then
+                            waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 17) / 4) * COLS + ((count-1) mod 4), waddr_grid'length));
+                            wen_grid <= '1';
+                            wpixel_grid <= '0';
+                        end if;
+                        count <= count + 1;
+
+                    elsif count > 32 and count < 49 then
+                        -- write new tetromino to 4*4 area one pixel at a time
+                        if tetromino(count - 33) = '1' then
+                            if update_shadow = '0' then
+                                waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 33) / 4 + 1) * COLS + ((count-1) mod 4), waddr_grid'length));
+                                wen_grid <= '1';
+                                wpixel_grid <= '1';
+                            else
+                                waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 33) / 4) * COLS + ((count-1) mod 4), waddr_grid'length));
+                                wen_grid <= '1';
+                                wpixel_grid <= '1';
+                                waddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 33) / 4) * COLS + ((count-1) mod 4), waddr_shadow'length));
+                                wen_shadow <= '1';
+                                wpixel_shadow <= '1';
+                            end if;
+                        end if;
+                        count <= count + 1;
+
+                    elsif count > 48 and fall_counter < variable_clk and start_visualizing = '0' then
+                        -- do nothing
+                        wen_grid <= '0';
+                        wen_shadow <= '0';
+
+                        wpixel_grid <= '0';
+                        wpixel_shadow <= '0';
+
+                        waddr_grid <= (others => '0');
+                        waddr_shadow <= (others => '0');
+
+                        if check_clear_rows = '1' then
+                            lock <= '1';
+                        else
+                            start_visualizing <= '1';
+                        end if;
+
+                        if done = '1' then
+                            --led <= "11";
+                            if row_cleared = '1' then
+                                score <= score + 1;
+                            end if;
+                            if variable_clk > 1_000_000 then
+                                variable_clk <= 11_999_999 - score*1_500_000;
+                            else
+                                variable_clk <= 500_000;
+                            end if;
+                            lock <= '0';
+                            start_visualizing <= '1';
+                            check_clear_rows <= '0';
+                        end if;
+
+                    elsif count > 48 and fall_counter < variable_clk and start_visualizing = '1' then
+
+                        -- serialize shadow grid
+                        if serialize_count < ROWS * COLS + 1 then
+                            serialize_count <= serialize_count + 1;
+                            if serialize_count < ROWS * COLS then
+                                raddr_shadow <= std_logic_vector(to_unsigned(serialize_count, raddr_shadow'length));
+                            end if;
+                            if serialize_count > 0 then
+                                serialized_shadow(serialize_count - 1) <= rpixel_shadow;
+                            end if;
+                        else
+                            serialize_count <= 0;
+                        end if;
+
+                        -- serialize grid
+                        if serialize_count < ROWS * COLS + 1 then
+                            serialize_count <= serialize_count + 1;
+                            if serialize_count < ROWS * COLS then
+                                raddr_grid <= std_logic_vector(to_unsigned(serialize_count, raddr_grid'length));
+                            end if;
+                            if serialize_count > 0 then
+                                serialized_grid(serialize_count - 1) <= rpixel_grid;
+                            end if;
+                        else
+                            serialize_count <= 0;
+                        end if;
+
+                    else
+                        start_visualizing <= '0';
+                        check_clear_rows <= '0';
+                        if update_shadow = '1' then
+                            state <= SPAWN;
+                            count <= 0;
+                            update_shadow <= '0';
+                            collision <= '0';
+                        else
+                            piece_pos_y <= piece_pos_y + 1;
+                            count <= 0;
+                            state <= IDLE;
+                        end if;
+                        fall_counter <= 0;
+                    end if;
+
+                when DROPS =>
+                    if count < 17 then
+                        start_visualizing <= '0';
+                        if count < 16 then
+                            tetromino <= fetch_tetromino(block_type, rotation);
+                            -- check 4*4 area one by one for collision
+                            if tetromino(count) = '1' then
+                                raddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + count / 4 + 1) * COLS + (count mod 4), raddr_shadow'length)); -- bottom
+                            end if;
+                        end if;
+                        if count > 0 then
+                            if tetromino(count - 1) = '1' then
+                                if rpixel_shadow = '1' or (piece_pos_y + (count-1) / 4 + 1 > ROWS - 1) then
+                                    collision <= '1';
+                                    check_clear_rows <= '1';
+                                end if;
+                            end if;
+                        end if;
+                            count <= count + 1;
+                            -- wpixel_grid <= '0';
+
+                    elsif count > 16 and count < 33 then
+                        -- delete tetromino in 4*4 area one pixel at a time
+                        if tetromino(count - 17) = '1' then
+                            waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 17) / 4) * COLS + ((count-1) mod 4), waddr_grid'length));
+                            wen_grid <= '1';
+                            wpixel_grid <= '0';
+                        end if;
+                        count <= count + 1;
+
+                    elsif count > 32 and count < 49 then
+                        -- write new tetromino to 4*4 area one pixel at a time
+                        if tetromino(count - 33) = '1' then
+                            if collision = '0' then
+                                waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 33) / 4 + 1) * COLS + ((count-1) mod 4), waddr_grid'length));
+                                wen_grid <= '1';
+                                wpixel_grid <= '1';
+                            else
+                                waddr_grid <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 33) / 4) * COLS + ((count-1) mod 4), waddr_grid'length));
+                                wen_grid <= '1';
+                                wpixel_grid <= '1';
+                                waddr_shadow <= std_logic_vector(to_unsigned(piece_pos_x + (piece_pos_y + (count - 33) / 4) * COLS + ((count-1) mod 4), waddr_shadow'length));
+                                wen_shadow <= '1';
+                                wpixel_shadow <= '1';
+                            end if;
+                        end if;
+
+                        if collision = '1' then
+                            count <= count + 1;
+                        else
+                            count <= 0;
+                            piece_pos_y <= piece_pos_y + 1;
+                        end if;
+
+                    -- elsif count > 48 and fall_counter < 11_999_999 and collision = '1' then
+                    --     -- do nothing
+                    --     wen_grid <= '0';
+                    --     wen_shadow <= '0';
+
+                    elsif count > 48 and fall_counter < variable_clk and start_visualizing = '0' then
+                        -- do nothing
+                        wen_grid <= '0';
+                        wen_shadow <= '0';
+
+                        wpixel_grid <= '0';
+                        wpixel_shadow <= '0';
+
+                        waddr_grid <= (others => '0');
+                        waddr_shadow <= (others => '0');
+
+                        if check_clear_rows = '1' then
+                            lock <= '1';
+                        else
+                            start_visualizing <= '1';
+                        end if;
+
+                        if done = '1' then
+                            --led <= "11";
+                            if row_cleared = '1' then
+                                score <= score + 1;
+                            end if;
+                            if variable_clk > 1_000_000 then
+                                variable_clk <= 11_999_999 - score*1_500_000;
+                            else
+                                variable_clk <= 500_000;
+                            end if;
+                            lock <= '0';
+                            start_visualizing <= '1';
+                            check_clear_rows <= '0';
+                        end if;
+
+                    elsif count > 48 and fall_counter < variable_clk and start_visualizing = '1' then
+
+                        -- serialize shadow grid
+                        if serialize_count < ROWS * COLS + 1 then
+                            serialize_count <= serialize_count + 1;
+                            if serialize_count < ROWS * COLS then
+                                raddr_shadow <= std_logic_vector(to_unsigned(serialize_count, raddr_shadow'length));
+                            end if;
+                            if serialize_count > 0 then
+                                serialized_shadow(serialize_count - 1) <= rpixel_shadow;
+                            end if;
+                        else
+                            serialize_count <= 0;
+                        end if;
+
+                        -- serialize grid
+                        if serialize_count < ROWS * COLS + 1 then
+                            serialize_count <= serialize_count + 1;
+                            if serialize_count < ROWS * COLS then
+                                raddr_grid <= std_logic_vector(to_unsigned(serialize_count, raddr_grid'length));
+                            end if;
+                            if serialize_count > 0 then
+                                serialized_grid(serialize_count - 1) <= rpixel_grid;
+                            end if;
+                        else
+                            serialize_count <= 0;
+                        end if;
+
+                    else
+                        start_visualizing <= '0';
+                        state <= SPAWN;
+                        count <= 0;
+                        collision <= '0';
+                        fall_counter <= 0;
+                    end if;
+
+
+                when others =>
+                    -- state <= GAME_OVER;
+
+            end case;
         end if;
     end process;
 
-    -- VGA Controller Instance
-    vga_ctrl_inst: entity work.vga_controller_simple_tetris
-        port map (
-            clk   => clk,
-            reset => reset,
-            tx    => tx_signal,       -- Optional TX signal (unused here)
-            grid  => grid_serialized, -- Serialized grid data
-            red   => red,             -- VGA red signal
-            green => green,           -- VGA green signal
-            blue  => blue,            -- VGA blue signal
-            hsync => hsync,           -- VGA horizontal sync
-            vsync => vsync -- VGA vertical sync
-        );
-
-end architecture;
+end Behavioral;

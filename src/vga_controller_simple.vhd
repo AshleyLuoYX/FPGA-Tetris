@@ -3,6 +3,7 @@ use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
+
 use work.tetris_utils.all;
 
 entity vga_controller_simple_tetris is
@@ -15,7 +16,8 @@ entity vga_controller_simple_tetris is
         green     : out std_logic_vector(1 downto 0); -- VGA green signal
         blue      : out std_logic_vector(1 downto 0); -- VGA blue signal
         hsync     : out std_logic;                 -- Horizontal sync
-        vsync     : out std_logic                  -- Vertical sync
+        vsync     : out std_logic;                  -- Vertical sync
+        game_over : in std_logic
     );
 end vga_controller_simple_tetris;
 
@@ -35,6 +37,21 @@ architecture arch of vga_controller_simple_tetris is
     signal grid_grn: std_logic_vector(1 downto 0);
     signal grid_blu: std_logic_vector(1 downto 0);
     
+	-- Signals from title_generator
+	signal title_red: std_logic_vector(1 downto 0);
+	signal title_grn: std_logic_vector(1 downto 0);
+	signal title_blu: std_logic_vector(1 downto 0);
+
+	-- Signals for Score Title Generator
+	signal score_title_red: std_logic_vector(1 downto 0);
+	signal score_title_grn: std_logic_vector(1 downto 0);
+	signal score_title_blu: std_logic_vector(1 downto 0);
+
+	-- Signals for Next Block Generator
+	signal next_block_red : std_logic_vector(1 downto 0);
+	signal next_block_grn : std_logic_vector(1 downto 0);
+	signal next_block_blu : std_logic_vector(1 downto 0);
+	signal next_block : std_logic_vector(0 to 15) := "1000100011000000"; -- Data for the next 4x4 block
 begin
 	tx<='1';
 
@@ -175,7 +192,7 @@ begin
     ------------------------------------------------------------------
     -- Instantiate Grid Generator
     ------------------------------------------------------------------
-    grid_gen_inst: entity work.grid_generator_simple
+    grid_gen_inst: entity work.grid_generator
         port map (
             clk => clkfx,
             grid => grid,
@@ -186,6 +203,32 @@ begin
             obj_blu => grid_blu
         );
 
+	------------------------------------------------------------------
+	-- Instantiate Title Generator
+	------------------------------------------------------------------
+	title_gen_inst: entity work.title_generator
+		port map (
+			clk => clkfx,
+			hcount => hcount,
+			vcount => vcount,
+			obj_red => title_red,
+			obj_green => title_grn,
+			obj_blue => title_blu
+		);
+	
+	------------------------------------------------------------------
+	-- Instantiate Score Title Generator
+	------------------------------------------------------------------
+	score_title_gen_inst: entity work.score_title_generator
+		port map (
+			clk => clkfx,
+			hcount => hcount,
+			vcount => vcount,
+			obj_red => score_title_red,
+			obj_green => score_title_grn,
+			obj_blue => score_title_blu
+		);
+
     ------------------------------------------------------------------
     -- VGA Output with Blanking and Placement
     ------------------------------------------------------------------
@@ -195,6 +238,23 @@ begin
 			obj1_red <= grid_red;
 			obj1_grn <= grid_grn;
 			obj1_blu <= grid_blu;
+        elsif (hcount >= to_unsigned(300, 10) and hcount < to_unsigned(639, 10) and
+			vcount >= to_unsigned(30, 10) and vcount < to_unsigned(95, 10)) then
+            obj1_red <= title_red;
+            obj1_grn <= title_grn;
+            obj1_blu <= title_blu;
+		elsif (hcount >= to_unsigned(350, 10) and hcount < to_unsigned(539, 10) and
+			vcount >= to_unsigned(130, 10) and vcount < to_unsigned(420, 10)) then
+			if game_over = '1' then
+				obj1_red <= score_title_red;
+				obj1_grn <= score_title_grn;
+				obj1_blu <= score_title_blu;
+			else
+				obj1_red <= "00";
+				obj1_grn <= "00";
+				obj1_blu <= "00";
+			end if;
+			
 		else
 			obj1_red <= "00";
 			obj1_grn <= "00";

@@ -4,9 +4,9 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity random_num is
     port (
-        clk     : in  std_logic;               -- Clock signal
-        reset   : in  std_logic;               -- Reset signal
-        random_number : out std_logic_vector(2 downto 0) -- Random number (3 bits for tetromino types 0-6)
+        clk     : in  std_logic;   -- Clock signal
+        reset   : in  std_logic;   -- Reset signal
+        random_number : out integer range 0 to 6 -- Random number (integer type restricted to 0-6)
     );
 end random_num;
 
@@ -34,9 +34,9 @@ begin
         if rising_edge(clk) then
             temp_random <= lfsr(2 downto 0); -- Extract lower 3 bits
             if temp_random = "111" then -- Check if the value is 7
-                random_number <= "000"; -- Default to 0 (or regenerate)
+                random_number <= 0; -- Default to 0 (or regenerate)
             else
-                random_number <= temp_random; -- Keep valid values (0-6)
+                random_number <= to_integer(unsigned(temp_random)); -- Convert to integer and assign
             end if;
         end if;
     end process;

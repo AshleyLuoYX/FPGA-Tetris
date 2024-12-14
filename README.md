@@ -1,5 +1,5 @@
 # FPGA-Tetris
-pp fan club
+Tetris game implemented in VHDL on Cmod A7-35T FPGA board. 
 
 
 ## Functionalities:

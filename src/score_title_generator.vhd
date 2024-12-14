@@ -20,13 +20,19 @@ architecture Behavioral of score_title_generator is
     constant block_size : integer := 8;       -- Enlargement factor (8x8 pixels per block)
 
     -- Updated binary representation of "SCORE:"
-    type score_array is array (0 to 4, 0 to 23) of std_logic;
+    type score_array is array (0 to 10, 0 to 18) of std_logic;
     constant score_bitmap : score_array := (
-        "011100111001100111001111",
-        "100001000010010100101000",
-        "011001000010010111001110",
-        "000101000010010101001000",
-        "111000111001100100101111"
+        "0111001100100101111",
+        "1000010010111101000",
+        "1011011110111101110",
+        "1001010010100101000",
+        "0111010010100101111",
+        "0000000000000000000",
+        "0110010010111101110",
+		"1001010010100001001",
+		"1001010010111001110",
+		"1001001100100001010",
+		"0110001100111101001"
     );
 
     signal score_x, score_y : integer; -- Current pixel position relative to "SCORE:"
@@ -50,9 +56,9 @@ begin
 
             -- Check if within "SCORE:" display area
             if (hcount >= to_unsigned(score_start_x, 10)) and
-               (hcount < to_unsigned(score_start_x + (24 * block_size), 10)) and -- 24 columns * 8 pixels per block
+               (hcount < to_unsigned(score_start_x + (19 * block_size), 10)) and -- 24 columns * 8 pixels per block
                (vcount >= to_unsigned(score_start_y, 10)) and
-               (vcount < to_unsigned(score_start_y + (5 * block_size), 10)) then -- 5 rows * 8 pixels per block
+               (vcount < to_unsigned(score_start_y + (11 * block_size), 10)) then -- 5 rows * 8 pixels per block
 
                 -- Render "SCORE:" based on the updated bitmap
                 if score_bitmap(block_y, block_x) = '1' then
